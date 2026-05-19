@@ -104,7 +104,8 @@ fix_pointer_mismatch() {
     echo "  [1] 将主仓库指针更新到当前 '${path}' commit"
     echo "  [2] 将 '${path}' 恢复到主仓库记录的 commit"
     echo "  [3] 我已了解风险，继续 push"
-    printf "请输入选项 [1/2/3]: "
+    echo "  [4] 取消"
+    printf "请输入选项 [1/2/3/4]: "
   } >/dev/tty
   read -r choice </dev/tty
 
@@ -124,6 +125,9 @@ fix_pointer_mismatch() {
       ;;
     3)
       echo "已选择继续 push：主仓库指针不会更新，远端仍记录旧的 '${path}' commit。"
+      ;;
+    4)
+      print_error "已取消操作，push 已阻止。"
       ;;
     "")
       print_error "未选择修复方式，push 已阻止。"
@@ -206,6 +210,9 @@ if [[ ${#mismatch_paths[@]} -gt 0 ]]; then
 
   for i in "${!mismatch_paths[@]}"; do
     fix_pointer_mismatch "${mismatch_paths[$i]}" "${mismatch_indexed_shas[$i]}" "${mismatch_head_shas[$i]}"
+    if [[ "$has_error" -ne 0 ]]; then
+      break
+    fi
   done
 fi
 
