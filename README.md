@@ -33,6 +33,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - 子模块未初始化或目录缺失时阻止 push，并提示执行 `.git/submodule-governance/submodule-sync.sh` 自动同步。
 - 子模块有未提交改动时阻止 push，避免本地脏状态混入主仓库判断。
 - 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时弹出中文修复菜单，可选择更新主仓库指针、恢复子模块、了解风险继续 push 或取消。
+- 如果存在 `.submodule-governance.branches`，会先检查主仓库和子模块分支是否与配置一致。
 - 主仓库已经 `git add <submodule>` 但还没 commit 时阻止 push。
 - 子模块 commit 未推送到上游时，默认只警告；开启严格模式后会阻止 push。
 - 提供 `.git/submodule-governance/submodule-sync.sh`，用于一键执行 `git submodule sync --recursive` 和 `git submodule update --init --recursive`。
@@ -44,6 +45,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
 - `.submodule-governance.env`
+- `.submodule-governance.branches`（可选，建议由主仓库维护并纳入 Git 管理）
 - `.git/hooks/pre-push`（由脚本自动安装）
 
 默认不会在目标主仓库生成 `scripts/` 目录，也不会覆盖目标仓库已有的 `scripts/` 文件。
@@ -53,6 +55,62 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 默认不需要把治理脚本纳入目标主仓库的 Git 管理。治理脚本会安装到 `.git/submodule-governance/`，这个目录属于本地 Git 元数据，不会被业务仓库提交。
 
 建议纳入目标主仓库 Git 管理的是 `.submodule-governance.env`，因为它决定团队是否启用严格模式。这样团队成员拿到主仓库后，执行一次 `bootstrap.sh` 即可得到一致的本地 hook 行为。
+
+如果项目需要统一规划主仓库和子模块分支，也建议将 `.submodule-governance.branches` 纳入主仓库 Git 管理。
+
+## 分支配置文件
+
+可以在主仓库根目录增加 `.submodule-governance.branches`：
+
+```ini
+# .submodule-governance.branches
+
+main=dev/v2.2.7/stable
+
+libs=dev/v2.2.7/stable
+ios=dev/v2.2.7/stable
+android=dev/v2.2.7/stable
+```
+
+含义：
+
+- `main` 表示主仓库期望分支。
+- 其他 key 表示子模块路径，必须和 `.gitmodules` 中的路径一致。
+- value 表示期望分支。
+- 子模块默认 remote 为 `origin`。
+- 如果配置文件不存在，保持原有检查行为。
+
+`git push` 前会优先执行分支匹配检查：
+
+```text
+分支匹配检查：
+
+主仓库：
+  当前分支：feature/test
+  配置分支：dev/v2.2.7/stable
+  状态：不一致
+
+子模块：
+  ios:
+    当前分支：feature/ios-test
+    配置分支：dev/v2.2.7/stable
+    状态：不一致
+```
+
+如果分支不一致，会先展示风险说明，再给出菜单：
+
+```text
+请选择处理方式：
+  [1] 根据配置文件将分支处理到一致状态
+  [2] 取消，终止操作
+  [3] 我已了解风险，强制继续 push
+```
+
+选择 `[1]` 会根据配置切换主仓库和子模块分支；子模块会执行 `fetch origin` 和 `pull --ff-only origin <branch>`，然后继续后续子模块 pointer 检查。
+
+选择 `[2]` 会终止流程并阻止本次 push。
+
+选择 `[3]` 会直接放行本次 push，并跳过后续所有子模块检查。
 
 ## 推荐接入方式
 

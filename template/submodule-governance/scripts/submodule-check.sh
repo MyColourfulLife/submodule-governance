@@ -18,9 +18,15 @@ require_pushed="${SUBMODULE_REQUIRE_PUSHED:-0}"
 has_error=0
 needs_repush=0
 auto_push_done=0
+force_push_without_checks=0
 mismatch_paths=()
 mismatch_indexed_shas=()
 mismatch_head_shas=()
+branch_config_file=".submodule-governance.branches"
+configured_main_branch=""
+configured_submodule_paths=()
+configured_submodule_branches=()
+branch_mismatch_found=0
 
 print_error() {
   echo "错误：$1"
@@ -31,9 +37,42 @@ print_warn() {
   echo "警告：$1"
 }
 
+trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
 is_interactive() {
   [[ "${SUBMODULE_INTERACTIVE:-1}" == "1" ]] || return 1
   [[ -e /dev/tty ]] && { : </dev/tty >/dev/tty; } 2>/dev/null
+}
+
+submodule_exists() {
+  local needle="$1"
+  local path=""
+
+  for path in "${submodule_paths[@]}"; do
+    if [[ "$path" == "$needle" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+main_repo_has_non_submodule_changes() {
+  local changed_path=""
+
+  while IFS= read -r changed_path; do
+    [[ -z "$changed_path" ]] && continue
+    if ! submodule_exists "$changed_path"; then
+      return 0
+    fi
+  done < <(git status --porcelain | awk '{print $2}')
+
+  return 1
 }
 
 ask_push_after_repair() {
@@ -72,6 +111,185 @@ ask_push_after_repair() {
     *)
       echo "无效选项 '$choice'。请确认后手动执行 git push。"
       needs_repush=1
+      ;;
+  esac
+}
+
+load_branch_config() {
+  local line=""
+  local line_no=0
+  local key=""
+  local value=""
+
+  [[ -f "$branch_config_file" ]] || return 0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_no=$((line_no + 1))
+    line="$(trim "$line")"
+
+    [[ -z "$line" ]] && continue
+    [[ "$line" == \#* ]] && continue
+
+    if [[ "$line" != *=* ]]; then
+      print_error "${branch_config_file}:${line_no} 配置格式错误，应使用 key=value。"
+      continue
+    fi
+
+    key="$(trim "${line%%=*}")"
+    value="$(trim "${line#*=}")"
+
+    if [[ -z "$key" || -z "$value" ]]; then
+      print_error "${branch_config_file}:${line_no} 配置不能为空。"
+      continue
+    fi
+
+    if [[ "$key" == "main" ]]; then
+      configured_main_branch="$value"
+      continue
+    fi
+
+    if ! submodule_exists "$key"; then
+      print_error "${branch_config_file}:${line_no} 配置了不存在的子模块 '$key'。"
+      continue
+    fi
+
+    configured_submodule_paths+=("$key")
+    configured_submodule_branches+=("$value")
+  done < "$branch_config_file"
+}
+
+align_branch_config() {
+  local current_main_branch=""
+  local path=""
+  local branch=""
+  local i=0
+
+  if main_repo_has_non_submodule_changes; then
+    print_error "主仓库存在未提交改动，无法自动切换分支。请先提交、暂存或还原改动。"
+    return
+  fi
+
+  if [[ -n "$configured_main_branch" ]]; then
+    current_main_branch="$(git branch --show-current)"
+    if [[ "$current_main_branch" != "$configured_main_branch" ]]; then
+      if ! git show-ref --verify --quiet "refs/heads/$configured_main_branch" &&
+         ! git show-ref --verify --quiet "refs/remotes/origin/$configured_main_branch"; then
+        print_error "主仓库目标分支 '$configured_main_branch' 不存在。"
+        return
+      fi
+      git checkout "$configured_main_branch"
+    fi
+  fi
+
+  for i in "${!configured_submodule_paths[@]}"; do
+    path="${configured_submodule_paths[$i]}"
+    branch="${configured_submodule_branches[$i]}"
+
+    if [[ -n "$(git -C "$path" status --porcelain)" ]]; then
+      print_error "子模块 '$path' 存在未提交改动，无法自动切换分支。"
+      return
+    fi
+
+    git -C "$path" fetch origin
+    if ! git -C "$path" show-ref --verify --quiet "refs/heads/$branch" &&
+       ! git -C "$path" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+      print_error "子模块 '$path' 目标分支 '$branch' 不存在。"
+      return
+    fi
+
+    git -C "$path" checkout "$branch"
+    git -C "$path" pull --ff-only origin "$branch"
+  done
+
+  echo "分支已根据 ${branch_config_file} 处理到一致状态。"
+}
+
+check_branch_config() {
+  local current_branch=""
+  local expected_branch=""
+  local path=""
+  local i=0
+  local status=""
+  local choice=""
+
+  [[ -f "$branch_config_file" ]] || return 0
+
+  load_branch_config
+  [[ "$has_error" -ne 0 ]] && return
+
+  {
+    echo
+    echo "分支匹配检查："
+    echo
+    if [[ -n "$configured_main_branch" ]]; then
+      current_branch="$(git branch --show-current)"
+      status="一致"
+      if [[ "$current_branch" != "$configured_main_branch" ]]; then
+        status="不一致"
+        branch_mismatch_found=1
+      fi
+      echo "主仓库："
+      echo "  当前分支：${current_branch:-<detached>}"
+      echo "  配置分支：${configured_main_branch}"
+      echo "  状态：${status}"
+      echo
+    fi
+
+    if [[ ${#configured_submodule_paths[@]} -gt 0 ]]; then
+      echo "子模块："
+      for i in "${!configured_submodule_paths[@]}"; do
+        path="${configured_submodule_paths[$i]}"
+        expected_branch="${configured_submodule_branches[$i]}"
+        current_branch="$(git -C "$path" branch --show-current)"
+        status="一致"
+        if [[ "$current_branch" != "$expected_branch" ]]; then
+          status="不一致"
+          branch_mismatch_found=1
+        fi
+        echo "  ${path}:"
+        echo "    当前分支：${current_branch:-<detached>}"
+        echo "    配置分支：${expected_branch}"
+        echo "    状态：${status}"
+        echo
+      done
+    fi
+  } >/dev/tty 2>/dev/null || true
+
+  [[ "$branch_mismatch_found" -eq 0 ]] && return 0
+
+  if ! is_interactive; then
+    print_error "当前分支与 ${branch_config_file} 不一致。非交互环境已阻止 push。"
+    return
+  fi
+
+  {
+    echo "风险说明："
+    echo "  当前主仓库或子模块分支与配置文件不一致。"
+    echo "  如果继续 push，主仓库可能记录到非预期分支上的子模块 commit。"
+    echo "  这会导致需求分支、子模块分支和最终可复现版本不一致。"
+    echo "  建议先根据配置文件对齐分支，再继续提交。"
+    echo
+    echo "请选择处理方式："
+    echo "  [1] 根据配置文件将分支处理到一致状态"
+    echo "  [2] 取消，终止操作"
+    echo "  [3] 我已了解风险，强制继续 push"
+    printf "请输入选项 [1/2/3]: "
+  } >/dev/tty
+  read -r choice </dev/tty
+
+  case "$choice" in
+    1)
+      align_branch_config
+      ;;
+    2|"")
+      print_error "已取消操作，push 已阻止。"
+      ;;
+    3)
+      echo "已选择强制继续 push：将跳过后续所有子模块检查。"
+      force_push_without_checks=1
+      ;;
+    *)
+      print_error "无效选项 '$choice'，push 已阻止。"
       ;;
   esac
 }
@@ -146,6 +364,17 @@ done < <(git config --file .gitmodules --get-regexp path || true)
 
 if [[ ${#submodule_paths[@]} -eq 0 ]]; then
   echo ".gitmodules 中未定义子模块路径。"
+  exit 0
+fi
+
+check_branch_config
+
+if [[ "$has_error" -ne 0 ]]; then
+  echo "分支匹配检查未通过，已阻止 push。"
+  exit 1
+fi
+
+if [[ "$force_push_without_checks" -ne 0 ]]; then
   exit 0
 fi
 
