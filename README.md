@@ -126,9 +126,9 @@ When a submodule has a new commit but the main repository pointer was not update
   [3] 我已了解风险，继续 push
 ```
 
-Option `[1]` runs `git add <submodule_path>` and blocks the current push so the developer can commit the pointer update.
+Option `[1]` runs `git add <submodule_path>` and creates a main repository commit to update the submodule pointer. The current push stops after repair, and the developer should run `git push` again.
 
-Option `[2]` checks the submodule back out to the commit recorded by the main repository.
+Option `[2]` checks the submodule back out to the commit recorded by the main repository. The current push stops after repair, and the developer should run `git push` again.
 
 Option `[3]` makes no change and continues the current push. The remote main repository will still record the old submodule commit.
 

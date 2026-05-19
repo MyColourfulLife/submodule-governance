@@ -94,7 +94,7 @@ fi
 echo "Running initial check..."
 (
   cd "$target_repo"
-  "$tool_dir/submodule-check.sh" || true
+  SUBMODULE_INTERACTIVE=0 "$tool_dir/submodule-check.sh" || true
 )
 
 echo "Bootstrap complete."

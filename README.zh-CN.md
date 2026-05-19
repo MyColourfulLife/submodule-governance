@@ -134,9 +134,9 @@ SUBMODULE_REQUIRE_PUSHED=0
   [3] 我已了解风险，继续 push
 ```
 
-选择 `[1]` 会自动执行 `git add <submodule_path>`，然后阻止本次 push，提示开发者提交主仓库指针变化后重新 push。
+选择 `[1]` 会自动执行 `git add <submodule_path>` 并生成主仓库 commit，用于更新子模块指针。修复完成后，本次 push 会被停止，开发者需要重新执行 `git push`。
 
-选择 `[2]` 会将子模块 checkout 回主仓库记录的 commit，适用于本地子模块误切到其他 commit 的情况。
+选择 `[2]` 会将子模块 checkout 回主仓库记录的 commit，适用于本地子模块误切到其他 commit 的情况。修复完成后，本次 push 会被停止，开发者需要重新执行 `git push`。
 
 选择 `[3]` 不做修改，并继续本次 push。此时主仓库远端仍然记录旧的子模块 commit，其他人拉取主仓库后不会自动拿到你本地当前的子模块 commit。
 
