@@ -121,7 +121,13 @@ SUBMODULE_REQUIRE_PUSHED=0
 ## 关键防护场景
 
 当子模块已经有新的 commit，但主仓库没有更新子模块指针时，
-主仓库执行 `git push` 会弹出修复菜单：
+主仓库执行 `git push` 会先汇总所有不一致的子模块，再逐个弹出修复菜单：
+
+```text
+发现 2 个子模块与主仓库记录不一致：
+  - ios: <old_commit> -> <new_commit>
+  - android: <old_commit> -> <new_commit>
+```
 
 ```text
 当前子模块 'ios' 与主仓库记录不一致：

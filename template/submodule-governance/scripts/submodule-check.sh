@@ -18,6 +18,9 @@ require_pushed="${SUBMODULE_REQUIRE_PUSHED:-0}"
 has_error=0
 needs_repush=0
 auto_push_done=0
+mismatch_paths=()
+mismatch_indexed_shas=()
+mismatch_head_shas=()
 
 print_error() {
   echo "错误：$1"
@@ -109,15 +112,15 @@ fix_pointer_mismatch() {
     1)
       git add "$path"
       commit_message="Update ${path} submodule pointer"
-      git commit -m "$commit_message"
+      git commit -m "$commit_message" -- "$path"
       commit_sha="$(git rev-parse --short HEAD)"
       echo "已修复：主仓库子模块指针已更新并生成 commit（${commit_sha} ${commit_message}，${path}: ${indexed_sha} -> ${head_sha}）。"
-      ask_push_after_repair
+      needs_repush=1
       ;;
     2)
       git -C "$path" checkout "$indexed_sha"
       echo "已修复：'${path}' 已恢复到主仓库记录的 commit：${indexed_sha}。"
-      ask_push_after_repair
+      needs_repush=1
       ;;
     3)
       echo "已选择继续 push：主仓库指针不会更新，远端仍记录旧的 '${path}' commit。"
@@ -167,7 +170,9 @@ for path in "${submodule_paths[@]}"; do
   indexed_sha="$(git ls-files -s -- "$path" | awk '{print $2}')"
   head_sha="$(git -C "$path" rev-parse HEAD)"
   if [[ -n "$indexed_sha" && "$indexed_sha" != "$head_sha" ]]; then
-    fix_pointer_mismatch "$path" "$indexed_sha" "$head_sha"
+    mismatch_paths+=("$path")
+    mismatch_indexed_shas+=("$indexed_sha")
+    mismatch_head_shas+=("$head_sha")
   fi
 
   if ! git -C "$path" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
@@ -188,6 +193,22 @@ for path in "${submodule_paths[@]}"; do
   fi
 done
 
+if [[ ${#mismatch_paths[@]} -gt 0 ]]; then
+  if is_interactive; then
+    {
+      echo
+      echo "发现 ${#mismatch_paths[@]} 个子模块与主仓库记录不一致："
+      for i in "${!mismatch_paths[@]}"; do
+        echo "  - ${mismatch_paths[$i]}: ${mismatch_indexed_shas[$i]} -> ${mismatch_head_shas[$i]}"
+      done
+    } >/dev/tty
+  fi
+
+  for i in "${!mismatch_paths[@]}"; do
+    fix_pointer_mismatch "${mismatch_paths[$i]}" "${mismatch_indexed_shas[$i]}" "${mismatch_head_shas[$i]}"
+  done
+fi
+
 if git diff --cached --name-only --diff-filter=AM | grep -qE '.*'; then
   while IFS= read -r staged_path; do
     if printf '%s\n' "${submodule_paths[@]}" | grep -Fxq "$staged_path"; then
@@ -201,12 +222,11 @@ if [[ "$has_error" -ne 0 ]]; then
   exit 1
 fi
 
-if [[ "$auto_push_done" -ne 0 ]]; then
-  exit 1
-fi
-
 if [[ "$needs_repush" -ne 0 ]]; then
-  echo "子模块问题已修复。请重新执行 git push。"
+  ask_push_after_repair
+  if [[ "$auto_push_done" -ne 0 ]]; then
+    exit 0
+  fi
   exit 1
 fi
 

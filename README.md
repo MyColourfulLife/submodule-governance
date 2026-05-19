@@ -113,7 +113,13 @@ Reinstall hook if needed:
 
 ## Key protection
 
-When a submodule has a new commit but the main repository pointer was not updated, `git push` in main repo is blocked and will prompt:
+When one or more submodules have new commits but the main repository pointer was not updated, `git push` first summarizes every mismatch and then prompts for each submodule:
+
+```text
+发现 2 个子模块与主仓库记录不一致：
+  - ios: <old_commit> -> <new_commit>
+  - android: <old_commit> -> <new_commit>
+```
 
 ```text
 当前子模块 'ios' 与主仓库记录不一致：
