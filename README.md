@@ -45,7 +45,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
 - `.submodule-governance.env`
-- `.submodule-governance.branches`（可选，建议由主仓库维护并纳入 Git 管理）
+- `.submodule-governance.branches`（默认生成，建议由主仓库维护并纳入 Git 管理）
 - `.git/hooks/pre-push`（由脚本自动安装）
 
 默认不会在目标主仓库生成 `scripts/` 目录，也不会覆盖目标仓库已有的 `scripts/` 文件。
@@ -56,20 +56,28 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 
 建议纳入目标主仓库 Git 管理的是 `.submodule-governance.env`，因为它决定团队是否启用严格模式。这样团队成员拿到主仓库后，执行一次 `bootstrap.sh` 即可得到一致的本地 hook 行为。
 
-如果项目需要统一规划主仓库和子模块分支，也建议将 `.submodule-governance.branches` 纳入主仓库 Git 管理。
+`.submodule-governance.branches` 会由 `bootstrap.sh` 默认生成。它用于统一规划主仓库和子模块分支，建议纳入主仓库 Git 管理。
 
 ## 分支配置文件
 
-可以在主仓库根目录增加 `.submodule-governance.branches`：
+`bootstrap.sh` 会在主仓库根目录生成 `.submodule-governance.branches`：
 
 ```ini
-# .submodule-governance.branches
+# 主仓库与子模块分支规划配置。
+# 文件格式：模块路径=分支名
+# 默认只启用主仓库分支检查，主仓库默认分支为 main。
+# 如果你的主仓库使用其他分支，请修改 main 的值。
+main=main
 
-main=dev/v2.2.7/stable
-
-libs=dev/v2.2.7/stable
-ios=dev/v2.2.7/stable
-android=dev/v2.2.7/stable
+# 子模块配置示例：
+# 需要启用时，取消注释并把分支名改成当前需求约定的分支。
+# key 必须与 .gitmodules 中的子模块路径一致。
+#
+# ios=dev/v2.2.7/stable
+# android=dev/v2.2.7/stable
+# libs=dev/v2.2.7/stable
+#
+# 如果暂时不需要分支规划，可以保留注释内容不变。
 ```
 
 含义：
@@ -78,7 +86,8 @@ android=dev/v2.2.7/stable
 - 其他 key 表示子模块路径，必须和 `.gitmodules` 中的路径一致。
 - value 表示期望分支。
 - 子模块默认 remote 为 `origin`。
-- 如果配置文件不存在，保持原有检查行为。
+- 默认只有 `main=main` 生效；子模块配置默认是注释，不会影响检查。
+- 如果不需要分支规划，可以保留注释内容不变，或删除该配置文件以保持原有检查行为。
 
 `git push` 前会优先执行分支匹配检查：
 

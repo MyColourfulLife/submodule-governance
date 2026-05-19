@@ -86,6 +86,27 @@ else
   fi
 fi
 
+branch_config_file="$target_repo/.submodule-governance.branches"
+if [[ ! -f "$branch_config_file" ]]; then
+  cat >"$branch_config_file" <<'EOF'
+# 主仓库与子模块分支规划配置。
+# 文件格式：模块路径=分支名
+# 默认只启用主仓库分支检查，主仓库默认分支为 main。
+# 如果你的主仓库使用其他分支，请修改 main 的值。
+main=main
+
+# 子模块配置示例：
+# 需要启用时，取消注释并把分支名改成当前需求约定的分支。
+# key 必须与 .gitmodules 中的子模块路径一致。
+#
+# ios=dev/v2.2.7/stable
+# android=dev/v2.2.7/stable
+# libs=dev/v2.2.7/stable
+#
+# 如果暂时不需要分支规划，可以保留注释内容不变。
+EOF
+fi
+
 (
   cd "$target_repo"
   "$tool_dir/install-hooks.sh"
