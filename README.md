@@ -1,11 +1,44 @@
 # Submodule Governance Template
 
 Reusable template to add local git submodule governance to an existing main repository.
+After running `bootstrap.sh`, a `pre-push` hook is installed by default. In daily work, developers usually only need to run `git push`; the hook performs submodule checks automatically before push.
+
+Chinese documentation: [README.zh-CN.md](README.zh-CN.md)
+
+## Background
+
+Many business projects are composed of one main repository and several Git Submodule repositories. For example, a `rn_module` main repository may include `ios` and `android` as submodules.
+
+As feature branches grow, teams often hit submodule drift: the main repo is on one branch, but local submodules still point to old commits; or a submodule has new commits, but the main repository forgot to commit the updated submodule pointer.
+
+Git Submodule records a specific submodule commit in the main repository. It does not automatically follow a branch. This template helps keep the main repository pointer, local submodule checkout, and remotely available submodule commit aligned.
+
+## Why this exists
+
+Manual submodule workflows are easy to miss:
+
+- Developers forget to sync submodules after branch changes.
+- Submodule commits are created, but the main repository pointer is not committed.
+- The main repository may reference a submodule commit that other developers cannot fetch.
+- Submodule pointer changes are easy to overlook during feature branch merges.
+- Problems often appear later during checkout, build, CI, or integration.
+
+This template moves those checks to local `git push`, with clear failure messages and recovery commands.
 
 ## Compatibility
 
 - Verified in macOS/Linux shell environments.
 - Not validated on Windows yet.
+
+## Core features
+
+- Automatic check before `git push` through `.git/hooks/pre-push`.
+- Blocks push when a submodule is missing or not initialized, and prompts `./scripts/submodule-sync.sh`.
+- Blocks push when a submodule has uncommitted changes.
+- Blocks push when submodule HEAD differs from the commit recorded by the main repository.
+- Blocks push when a submodule pointer is staged but not committed.
+- Warns by default when submodule HEAD is not pushed to upstream; strict mode turns this into a blocking error.
+- Provides `./scripts/submodule-sync.sh` to run `git submodule sync --recursive` and `git submodule update --init --recursive`.
 
 ## What this template installs
 
@@ -30,6 +63,8 @@ Run this command inside your target main repository:
 /path/to/submodule-governance-template/bootstrap.sh /path/to/target-repo
 ```
 
+After installation, the target repository checks submodule state automatically before push.
+
 ## Strict mode
 
 Install with strict mode:
@@ -48,13 +83,15 @@ Use `SUBMODULE_REQUIRE_PUSHED=0` for non-strict mode.
 
 ## Daily usage in target repo
 
-Sync submodules after branch changes:
+Usually, developers do not need to run check scripts manually. The installed `pre-push` hook runs automatically during `git push`.
+
+If submodules are missing or out of sync, run:
 
 ```bash
 ./scripts/submodule-sync.sh
 ```
 
-Run manual check:
+Manual check is still available for debugging or preflight:
 
 ```bash
 ./scripts/submodule-check.sh
