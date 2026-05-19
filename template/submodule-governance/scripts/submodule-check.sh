@@ -217,43 +217,48 @@ check_branch_config() {
   load_branch_config
   [[ "$has_error" -ne 0 ]] && return
 
-  {
-    echo
-    echo "分支匹配检查："
-    echo
-    if [[ -n "$configured_main_branch" ]]; then
-      current_branch="$(git branch --show-current)"
+  if is_interactive; then
+    exec 3>/dev/tty
+  else
+    exec 3>&1
+  fi
+
+  echo >&3
+  echo "分支匹配检查：" >&3
+  echo >&3
+  if [[ -n "$configured_main_branch" ]]; then
+    current_branch="$(git branch --show-current)"
+    status="一致"
+    if [[ "$current_branch" != "$configured_main_branch" ]]; then
+      status="不一致"
+      branch_mismatch_found=1
+    fi
+    echo "主仓库：" >&3
+    echo "  当前分支：${current_branch:-<detached>}" >&3
+    echo "  配置分支：${configured_main_branch}" >&3
+    echo "  状态：${status}" >&3
+    echo >&3
+  fi
+
+  if [[ ${#configured_submodule_paths[@]} -gt 0 ]]; then
+    echo "子模块：" >&3
+    for i in "${!configured_submodule_paths[@]}"; do
+      path="${configured_submodule_paths[$i]}"
+      expected_branch="${configured_submodule_branches[$i]}"
+      current_branch="$(git -C "$path" branch --show-current)"
       status="一致"
-      if [[ "$current_branch" != "$configured_main_branch" ]]; then
+      if [[ "$current_branch" != "$expected_branch" ]]; then
         status="不一致"
         branch_mismatch_found=1
       fi
-      echo "主仓库："
-      echo "  当前分支：${current_branch:-<detached>}"
-      echo "  配置分支：${configured_main_branch}"
-      echo "  状态：${status}"
-      echo
-    fi
-
-    if [[ ${#configured_submodule_paths[@]} -gt 0 ]]; then
-      echo "子模块："
-      for i in "${!configured_submodule_paths[@]}"; do
-        path="${configured_submodule_paths[$i]}"
-        expected_branch="${configured_submodule_branches[$i]}"
-        current_branch="$(git -C "$path" branch --show-current)"
-        status="一致"
-        if [[ "$current_branch" != "$expected_branch" ]]; then
-          status="不一致"
-          branch_mismatch_found=1
-        fi
-        echo "  ${path}:"
-        echo "    当前分支：${current_branch:-<detached>}"
-        echo "    配置分支：${expected_branch}"
-        echo "    状态：${status}"
-        echo
-      done
-    fi
-  } >/dev/tty 2>/dev/null || true
+      echo "  ${path}:" >&3
+      echo "    当前分支：${current_branch:-<detached>}" >&3
+      echo "    配置分支：${expected_branch}" >&3
+      echo "    状态：${status}" >&3
+      echo >&3
+    done
+  fi
+  exec 3>&-
 
   [[ "$branch_mismatch_found" -eq 0 ]] && return 0
 
