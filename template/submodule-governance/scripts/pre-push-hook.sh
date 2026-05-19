@@ -13,4 +13,7 @@ if [[ -f "$repo_root/.submodule-governance.env" ]]; then
   source "$repo_root/.submodule-governance.env"
 fi
 
+export SUBMODULE_PUSH_REMOTE_NAME="${1:-}"
+export SUBMODULE_PUSH_REMOTE_URL="${2:-}"
+
 "$git_dir/submodule-governance/submodule-check.sh"

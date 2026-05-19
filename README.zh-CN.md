@@ -138,12 +138,15 @@ SUBMODULE_REQUIRE_PUSHED=0
 
 ```text
 已修复：主仓库子模块指针已更新并生成 commit（<commit_sha> Update <submodule_path> submodule pointer，<submodule_path>: <old_commit> -> <new_commit>）。
-请确认后重新 push。
+问题已修复：
+  [y] 自动 push
+  [n] 手动 push
+请输入选项 [y/n]:
 ```
 
-本次 push 会被停止，开发者确认后重新执行 `git push`。
+选择 `[y]` 会自动执行 `git push --no-verify`，避免 hook 递归触发；选择 `[n]` 会停止本次 push，开发者确认后手动执行 `git push`。
 
-选择 `[2]` 会将子模块 checkout 回主仓库记录的 commit，适用于本地子模块误切到其他 commit 的情况。修复完成后，本次 push 会被停止，开发者需要重新执行 `git push`。
+选择 `[2]` 会将子模块 checkout 回主仓库记录的 commit，适用于本地子模块误切到其他 commit 的情况。修复完成后同样会询问自动 push 或手动 push。
 
 选择 `[3]` 不做修改，并继续本次 push。此时主仓库远端仍然记录旧的子模块 commit，其他人拉取主仓库后不会自动拿到你本地当前的子模块 commit。
 

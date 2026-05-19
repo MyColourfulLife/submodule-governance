@@ -17,6 +17,7 @@ fi
 require_pushed="${SUBMODULE_REQUIRE_PUSHED:-0}"
 has_error=0
 needs_repush=0
+auto_push_done=0
 
 print_error() {
   echo "错误：$1"
@@ -30,6 +31,46 @@ print_warn() {
 is_interactive() {
   [[ "${SUBMODULE_INTERACTIVE:-1}" == "1" ]] || return 1
   [[ -e /dev/tty ]] && { : </dev/tty >/dev/tty; } 2>/dev/null
+}
+
+ask_push_after_repair() {
+  local choice=""
+  local remote_name="${SUBMODULE_PUSH_REMOTE_NAME:-}"
+
+  if ! is_interactive; then
+    echo "问题已修复。请手动执行 git push。"
+    needs_repush=1
+    return
+  fi
+
+  {
+    echo
+    echo "问题已修复："
+    echo "  [y] 自动 push"
+    echo "  [n] 手动 push"
+    printf "请输入选项 [y/n]: "
+  } >/dev/tty
+  read -r choice </dev/tty
+
+  case "$choice" in
+    y|Y)
+      if [[ -n "$remote_name" ]]; then
+        git push --no-verify "$remote_name"
+      else
+        git push --no-verify
+      fi
+      echo "已自动 push。"
+      auto_push_done=1
+      ;;
+    n|N|"")
+      echo "请确认后手动执行 git push。"
+      needs_repush=1
+      ;;
+    *)
+      echo "无效选项 '$choice'。请确认后手动执行 git push。"
+      needs_repush=1
+      ;;
+  esac
 }
 
 fix_pointer_mismatch() {
@@ -71,13 +112,12 @@ fix_pointer_mismatch() {
       git commit -m "$commit_message"
       commit_sha="$(git rev-parse --short HEAD)"
       echo "已修复：主仓库子模块指针已更新并生成 commit（${commit_sha} ${commit_message}，${path}: ${indexed_sha} -> ${head_sha}）。"
-      echo "请确认后重新 push。"
-      needs_repush=1
+      ask_push_after_repair
       ;;
     2)
       git -C "$path" checkout "$indexed_sha"
-      echo "已修复：'${path}' 已恢复到主仓库记录的 commit：${indexed_sha}。请重新执行 git push。"
-      needs_repush=1
+      echo "已修复：'${path}' 已恢复到主仓库记录的 commit：${indexed_sha}。"
+      ask_push_after_repair
       ;;
     3)
       echo "已选择继续 push：主仓库指针不会更新，远端仍记录旧的 '${path}' commit。"
@@ -158,6 +198,10 @@ fi
 
 if [[ "$has_error" -ne 0 ]]; then
   echo "子模块检查未通过，已阻止 push。"
+  exit 1
+fi
+
+if [[ "$auto_push_done" -ne 0 ]]; then
   exit 1
 fi
 
