@@ -45,13 +45,13 @@ while IFS= read -r status_line; do
   path="${path%% *}"
 
   if [[ "$state" == "-" ]]; then
-    print_error "submodule '$path' is not initialized. Run: ./scripts/submodule-sync.sh"
+    print_error "submodule '$path' is not initialized. Run: .git/submodule-governance/submodule-sync.sh"
   fi
 done < <(git submodule status --recursive || true)
 
 for path in "${submodule_paths[@]}"; do
   if [[ ! -d "$path/.git" && ! -f "$path/.git" ]]; then
-    print_error "submodule '$path' directory is missing. Run: ./scripts/submodule-sync.sh"
+    print_error "submodule '$path' directory is missing. Run: .git/submodule-governance/submodule-sync.sh"
     continue
   fi
 

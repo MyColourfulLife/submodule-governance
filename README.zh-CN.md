@@ -30,21 +30,29 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 ## 核心功能
 
 - `git push` 前自动检查：安装后默认写入 `.git/hooks/pre-push`，开发者日常不需要手动执行检查脚本。
-- 子模块未初始化或目录缺失时阻止 push，并提示执行 `./scripts/submodule-sync.sh` 自动同步。
+- 子模块未初始化或目录缺失时阻止 push，并提示执行 `.git/submodule-governance/submodule-sync.sh` 自动同步。
 - 子模块有未提交改动时阻止 push，避免本地脏状态混入主仓库判断。
 - 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时阻止 push，并提示提交主仓库子模块指针。
 - 主仓库已经 `git add <submodule>` 但还没 commit 时阻止 push。
 - 子模块 commit 未推送到上游时，默认只警告；开启严格模式后会阻止 push。
-- 提供 `./scripts/submodule-sync.sh`，用于一键执行 `git submodule sync --recursive` 和 `git submodule update --init --recursive`。
+- 提供 `.git/submodule-governance/submodule-sync.sh`，用于一键执行 `git submodule sync --recursive` 和 `git submodule update --init --recursive`。
 
 ## 模板会安装哪些文件
 
-- `scripts/submodule-check.sh`
-- `scripts/submodule-sync.sh`
-- `scripts/pre-push-hook.sh`
-- `scripts/install-hooks.sh`
+- `.git/submodule-governance/submodule-check.sh`
+- `.git/submodule-governance/submodule-sync.sh`
+- `.git/submodule-governance/pre-push-hook.sh`
+- `.git/submodule-governance/install-hooks.sh`
 - `.submodule-governance.env`
 - `.git/hooks/pre-push`（由脚本自动安装）
+
+默认不会在目标主仓库生成 `scripts/` 目录，也不会覆盖目标仓库已有的 `scripts/` 文件。
+
+## 是否需要纳入主项目 Git 管理
+
+默认不需要把治理脚本纳入目标主仓库的 Git 管理。治理脚本会安装到 `.git/submodule-governance/`，这个目录属于本地 Git 元数据，不会被业务仓库提交。
+
+建议纳入目标主仓库 Git 管理的是 `.submodule-governance.env`，因为它决定团队是否启用严格模式。这样团队成员拿到主仓库后，执行一次 `bootstrap.sh` 即可得到一致的本地 hook 行为。
 
 ## 推荐接入方式
 
@@ -93,7 +101,7 @@ SUBMODULE_REQUIRE_PUSHED=0
 如果切分支、拉取代码后发现子模块未同步，或 hook 提示子模块未初始化/目录缺失，可以执行：
 
 ```bash
-./scripts/submodule-sync.sh
+.git/submodule-governance/submodule-sync.sh
 ```
 
 它会自动同步子模块 URL 和主仓库记录的子模块 commit。
@@ -101,13 +109,13 @@ SUBMODULE_REQUIRE_PUSHED=0
 如果想在 push 前主动检查，也可以手动执行：
 
 ```bash
-./scripts/submodule-check.sh
+.git/submodule-governance/submodule-check.sh
 ```
 
 如果 hook 丢失，可重新安装：
 
 ```bash
-./scripts/install-hooks.sh
+.git/submodule-governance/install-hooks.sh
 ```
 
 ## 关键防护场景

@@ -33,21 +33,29 @@ This template moves those checks to local `git push`, with clear failure message
 ## Core features
 
 - Automatic check before `git push` through `.git/hooks/pre-push`.
-- Blocks push when a submodule is missing or not initialized, and prompts `./scripts/submodule-sync.sh`.
+- Blocks push when a submodule is missing or not initialized, and prompts `.git/submodule-governance/submodule-sync.sh`.
 - Blocks push when a submodule has uncommitted changes.
 - Blocks push when submodule HEAD differs from the commit recorded by the main repository.
 - Blocks push when a submodule pointer is staged but not committed.
 - Warns by default when submodule HEAD is not pushed to upstream; strict mode turns this into a blocking error.
-- Provides `./scripts/submodule-sync.sh` to run `git submodule sync --recursive` and `git submodule update --init --recursive`.
+- Provides `.git/submodule-governance/submodule-sync.sh` to run `git submodule sync --recursive` and `git submodule update --init --recursive`.
 
 ## What this template installs
 
-- `scripts/submodule-check.sh`
-- `scripts/submodule-sync.sh`
-- `scripts/pre-push-hook.sh`
-- `scripts/install-hooks.sh`
+- `.git/submodule-governance/submodule-check.sh`
+- `.git/submodule-governance/submodule-sync.sh`
+- `.git/submodule-governance/pre-push-hook.sh`
+- `.git/submodule-governance/install-hooks.sh`
 - `.submodule-governance.env`
 - `.git/hooks/pre-push` (installed by script)
+
+By default, this template does not create a business `scripts/` directory and does not overwrite existing project scripts.
+
+## Git tracking policy
+
+The installed governance scripts do not need to be tracked by the target repository. They are installed under `.git/submodule-governance/`, which is local Git metadata.
+
+It is recommended to track `.submodule-governance.env` in the target repository, because it defines whether the team uses strict mode.
 
 ## Install into current repo
 
@@ -88,19 +96,19 @@ Usually, developers do not need to run check scripts manually. The installed `pr
 If submodules are missing or out of sync, run:
 
 ```bash
-./scripts/submodule-sync.sh
+.git/submodule-governance/submodule-sync.sh
 ```
 
 Manual check is still available for debugging or preflight:
 
 ```bash
-./scripts/submodule-check.sh
+.git/submodule-governance/submodule-check.sh
 ```
 
 Reinstall hook if needed:
 
 ```bash
-./scripts/install-hooks.sh
+.git/submodule-governance/install-hooks.sh
 ```
 
 ## Key protection

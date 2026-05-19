@@ -44,23 +44,31 @@ fi
 target_repo="$(cd "$target_repo" && pwd)"
 template_root="$(cd "$(dirname "$0")/template/submodule-governance" && pwd)"
 
-if [[ ! -d "$target_repo/.git" ]]; then
+if ! git -C "$target_repo" rev-parse --show-toplevel >/dev/null 2>&1; then
   echo "Target is not a git repository: $target_repo"
   exit 1
 fi
 
-mkdir -p "$target_repo/scripts"
+target_repo="$(git -C "$target_repo" rev-parse --show-toplevel)"
+git_dir="$(git -C "$target_repo" rev-parse --git-dir)"
+case "$git_dir" in
+  /*) ;;
+  *) git_dir="$target_repo/$git_dir" ;;
+esac
 
-cp "$template_root/scripts/submodule-check.sh" "$target_repo/scripts/submodule-check.sh"
-cp "$template_root/scripts/submodule-sync.sh" "$target_repo/scripts/submodule-sync.sh"
-cp "$template_root/scripts/pre-push-hook.sh" "$target_repo/scripts/pre-push-hook.sh"
-cp "$template_root/scripts/install-hooks.sh" "$target_repo/scripts/install-hooks.sh"
+tool_dir="$git_dir/submodule-governance"
+mkdir -p "$tool_dir"
+
+cp "$template_root/scripts/submodule-check.sh" "$tool_dir/submodule-check.sh"
+cp "$template_root/scripts/submodule-sync.sh" "$tool_dir/submodule-sync.sh"
+cp "$template_root/scripts/pre-push-hook.sh" "$tool_dir/pre-push-hook.sh"
+cp "$template_root/scripts/install-hooks.sh" "$tool_dir/install-hooks.sh"
 
 chmod +x \
-  "$target_repo/scripts/submodule-check.sh" \
-  "$target_repo/scripts/submodule-sync.sh" \
-  "$target_repo/scripts/pre-push-hook.sh" \
-  "$target_repo/scripts/install-hooks.sh"
+  "$tool_dir/submodule-check.sh" \
+  "$tool_dir/submodule-sync.sh" \
+  "$tool_dir/pre-push-hook.sh" \
+  "$tool_dir/install-hooks.sh"
 
 config_file="$target_repo/.submodule-governance.env"
 if [[ ! -f "$config_file" ]]; then
@@ -80,17 +88,18 @@ fi
 
 (
   cd "$target_repo"
-  ./scripts/install-hooks.sh
+  "$tool_dir/install-hooks.sh"
 )
 
 echo "Running initial check..."
 (
   cd "$target_repo"
-  ./scripts/submodule-check.sh || true
+  "$tool_dir/submodule-check.sh" || true
 )
 
 echo "Bootstrap complete."
 echo "Target repo: $target_repo"
+echo "Tool dir: $tool_dir"
 if [[ "$strict_mode" == "1" ]]; then
   echo "Mode: strict (SUBMODULE_REQUIRE_PUSHED=1)"
 else
