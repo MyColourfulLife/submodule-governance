@@ -47,10 +47,15 @@ fix_pointer_mismatch() {
     echo "  子模块当前 commit：$head_sha"
     echo "  主仓库记录 commit：$indexed_sha"
     echo
+    echo "风险说明："
+    echo "  如果继续 push，主仓库远端仍然记录旧的子模块 commit。"
+    echo "  其他人拉取主仓库后，不会自动拿到你本地当前的 '$path' commit。"
+    echo "  如果这是一次有意的本地调试状态，可以选择继续；如果当前子模块变更属于本次提交，应先更新主仓库指针。"
+    echo
     echo "请选择修复方式："
     echo "  [1] 将主仓库指针更新到当前 '$path' commit"
     echo "  [2] 将 '$path' 恢复到主仓库记录的 commit"
-    echo "  [3] 跳过，本次阻止 push"
+    echo "  [3] 我已了解风险，继续 push"
     printf "请输入选项 [1/2/3]: "
   } >/dev/tty
   read -r choice </dev/tty
@@ -64,8 +69,11 @@ fix_pointer_mismatch() {
       git -C "$path" checkout "$indexed_sha"
       echo "已将 '$path' 恢复到主仓库记录的 commit：$indexed_sha"
       ;;
-    3|"")
-      print_error "已跳过修复，push 已阻止。"
+    3)
+      echo "已选择继续 push：主仓库指针不会更新，远端仍记录旧的 '$path' commit。"
+      ;;
+    "")
+      print_error "未选择修复方式，push 已阻止。"
       ;;
     *)
       print_error "无效选项 '$choice'，push 已阻止。"

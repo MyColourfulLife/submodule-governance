@@ -123,13 +123,13 @@ When a submodule has a new commit but the main repository pointer was not update
 请选择修复方式：
   [1] 将主仓库指针更新到当前 'ios' commit
   [2] 将 'ios' 恢复到主仓库记录的 commit
-  [3] 跳过，本次阻止 push
+  [3] 我已了解风险，继续 push
 ```
 
 Option `[1]` runs `git add <submodule_path>` and blocks the current push so the developer can commit the pointer update.
 
 Option `[2]` checks the submodule back out to the commit recorded by the main repository.
 
-Option `[3]` makes no change and blocks the current push.
+Option `[3]` makes no change and continues the current push. The remote main repository will still record the old submodule commit.
 
 In non-interactive environments, the script prints a Chinese error message and blocks push without showing a menu.
