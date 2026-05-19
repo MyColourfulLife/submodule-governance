@@ -35,7 +35,7 @@ This template moves those checks to local `git push`, with clear failure message
 - Automatic check before `git push` through `.git/hooks/pre-push`.
 - Blocks push when a submodule is missing or not initialized, and prompts `.git/submodule-governance/submodule-sync.sh`.
 - Blocks push when a submodule has uncommitted changes.
-- Blocks push when submodule HEAD differs from the commit recorded by the main repository.
+- Shows an interactive Chinese repair menu when submodule HEAD differs from the commit recorded by the main repository.
 - Blocks push when a submodule pointer is staged but not committed.
 - Warns by default when submodule HEAD is not pushed to upstream; strict mode turns this into a blocking error.
 - Provides `.git/submodule-governance/submodule-sync.sh` to run `git submodule sync --recursive` and `git submodule update --init --recursive`.
@@ -115,7 +115,21 @@ Reinstall hook if needed:
 
 When a submodule has a new commit but the main repository pointer was not updated, `git push` in main repo is blocked and will prompt:
 
-```bash
-git add <submodule_path>
-git commit -m "Update submodule pointer"
+```text
+当前子模块 'ios' 与主仓库记录不一致：
+  子模块当前 commit：<current_commit>
+  主仓库记录 commit：<recorded_commit>
+
+请选择修复方式：
+  [1] 将主仓库指针更新到当前 'ios' commit
+  [2] 将 'ios' 恢复到主仓库记录的 commit
+  [3] 跳过，本次阻止 push
 ```
+
+Option `[1]` runs `git add <submodule_path>` and blocks the current push so the developer can commit the pointer update.
+
+Option `[2]` checks the submodule back out to the commit recorded by the main repository.
+
+Option `[3]` makes no change and blocks the current push.
+
+In non-interactive environments, the script prints a Chinese error message and blocks push without showing a menu.

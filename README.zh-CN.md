@@ -32,7 +32,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `git push` 前自动检查：安装后默认写入 `.git/hooks/pre-push`，开发者日常不需要手动执行检查脚本。
 - 子模块未初始化或目录缺失时阻止 push，并提示执行 `.git/submodule-governance/submodule-sync.sh` 自动同步。
 - 子模块有未提交改动时阻止 push，避免本地脏状态混入主仓库判断。
-- 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时阻止 push，并提示提交主仓库子模块指针。
+- 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时弹出中文修复菜单，可选择更新主仓库指针、恢复子模块或跳过。
 - 主仓库已经 `git add <submodule>` 但还没 commit 时阻止 push。
 - 子模块 commit 未推送到上游时，默认只警告；开启严格模式后会阻止 push。
 - 提供 `.git/submodule-governance/submodule-sync.sh`，用于一键执行 `git submodule sync --recursive` 和 `git submodule update --init --recursive`。
@@ -121,11 +121,25 @@ SUBMODULE_REQUIRE_PUSHED=0
 ## 关键防护场景
 
 当子模块已经有新的 commit，但主仓库没有更新子模块指针时，
-主仓库执行 `git push` 会被阻止，并提示修复：
+主仓库执行 `git push` 会弹出修复菜单：
 
-```bash
-git add <submodule_path>
-git commit -m "Update submodule pointer"
+```text
+当前子模块 'ios' 与主仓库记录不一致：
+  子模块当前 commit：<current_commit>
+  主仓库记录 commit：<recorded_commit>
+
+请选择修复方式：
+  [1] 将主仓库指针更新到当前 'ios' commit
+  [2] 将 'ios' 恢复到主仓库记录的 commit
+  [3] 跳过，本次阻止 push
 ```
 
-也就是说，正确流程是：先在子模块仓库提交并推送代码，再回到主仓库提交子模块指针变化。这个模板会帮助开发者在忘记第二步时及时发现。
+选择 `[1]` 会自动执行 `git add <submodule_path>`，然后阻止本次 push，提示开发者提交主仓库指针变化后重新 push。
+
+选择 `[2]` 会将子模块 checkout 回主仓库记录的 commit，适用于本地子模块误切到其他 commit 的情况。
+
+选择 `[3]` 不做修改，并阻止本次 push。
+
+也就是说，正确流程是：先在子模块仓库提交并推送代码，再回到主仓库提交子模块指针变化。这个模板会帮助开发者在忘记第二步时及时发现，并给出可选择的修复动作。
+
+如果脚本运行在非交互环境（例如 CI 或管道），不会弹菜单，会直接输出中文错误并阻止。
