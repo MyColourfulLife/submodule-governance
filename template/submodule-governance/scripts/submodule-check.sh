@@ -37,6 +37,8 @@ fix_pointer_mismatch() {
   local indexed_sha="$2"
   local head_sha="$3"
   local choice=""
+  local commit_message=""
+  local commit_sha=""
 
   if ! is_interactive; then
     print_error "子模块 '$path' 当前 HEAD ($head_sha) 与主仓库记录的 commit ($indexed_sha) 不一致。请执行：git add $path && git commit"
@@ -65,8 +67,11 @@ fix_pointer_mismatch() {
   case "$choice" in
     1)
       git add "$path"
-      git commit -m "Update ${path} submodule pointer"
-      echo "已修复：主仓库子模块指针已更新并生成 commit。请重新执行 git push。"
+      commit_message="Update ${path} submodule pointer"
+      git commit -m "$commit_message"
+      commit_sha="$(git rev-parse --short HEAD)"
+      echo "已修复：主仓库子模块指针已更新并生成 commit（${commit_sha} ${commit_message}，${path}: ${indexed_sha} -> ${head_sha}）。"
+      echo "请确认后重新 push。"
       needs_repush=1
       ;;
     2)

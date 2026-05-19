@@ -126,7 +126,14 @@ When a submodule has a new commit but the main repository pointer was not update
   [3] 我已了解风险，继续 push
 ```
 
-Option `[1]` runs `git add <submodule_path>` and creates a main repository commit to update the submodule pointer. The current push stops after repair, and the developer should run `git push` again.
+Option `[1]` runs `git add <submodule_path>` and creates a main repository commit to update the submodule pointer. After repair, it prints:
+
+```text
+已修复：主仓库子模块指针已更新并生成 commit（<commit_sha> Update <submodule_path> submodule pointer，<submodule_path>: <old_commit> -> <new_commit>）。
+请确认后重新 push。
+```
+
+The current push stops after repair, and the developer should confirm the change before running `git push` again.
 
 Option `[2]` checks the submodule back out to the commit recorded by the main repository. The current push stops after repair, and the developer should run `git push` again.
 
