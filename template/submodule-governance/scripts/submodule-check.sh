@@ -4,17 +4,12 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-if [[ -f ".submodule-governance.env" ]]; then
-  # shellcheck disable=SC1091
-  source ".submodule-governance.env"
-fi
-
 if [[ ! -f .gitmodules ]]; then
   echo "未发现 .gitmodules，跳过子模块检查。"
   exit 0
 fi
 
-require_pushed="${SUBMODULE_REQUIRE_PUSHED:-0}"
+require_pushed=0
 has_error=0
 needs_repush=0
 auto_push_done=0
@@ -22,7 +17,7 @@ force_push_without_checks=0
 mismatch_paths=()
 mismatch_indexed_shas=()
 mismatch_head_shas=()
-branch_config_file=".submodule-governance.branches"
+config_file=".submodule-governance.config"
 configured_main_branch=""
 configured_submodule_paths=()
 configured_submodule_branches=()
@@ -35,13 +30,6 @@ print_error() {
 
 print_warn() {
   echo "警告：$1"
-}
-
-trim() {
-  local value="$1"
-  value="${value#"${value%%[![:space:]]*}"}"
-  value="${value%"${value##*[![:space:]]}"}"
-  printf '%s' "$value"
 }
 
 is_interactive() {
@@ -115,47 +103,53 @@ ask_push_after_repair() {
   esac
 }
 
-load_branch_config() {
-  local line=""
-  local line_no=0
+load_config() {
+  local require_pushed_value=""
   local key=""
+  local path=""
   local value=""
 
-  [[ -f "$branch_config_file" ]] || return 0
+  [[ -f "$config_file" ]] || return 0
 
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    line_no=$((line_no + 1))
-    line="$(trim "$line")"
+  if ! git config --file "$config_file" --list >/dev/null 2>&1; then
+    print_error "${config_file} 不是有效的 Git config 文件。"
+    return
+  fi
 
-    [[ -z "$line" ]] && continue
-    [[ "$line" == \#* ]] && continue
+  if git config --file "$config_file" --get governance.requirePushed >/dev/null 2>&1; then
+    if ! require_pushed_value="$(git config --file "$config_file" --type=bool --get governance.requirePushed 2>/dev/null)"; then
+      print_error "${config_file} 中 governance.requirePushed 必须为布尔值。"
+      return
+    fi
+    if [[ "$require_pushed_value" == "true" ]]; then
+      require_pushed=1
+    fi
+  fi
 
-    if [[ "$line" != *=* ]]; then
-      print_error "${branch_config_file}:${line_no} 配置格式错误，应使用 key=value。"
+  if git config --file "$config_file" --get governance.mainBranch >/dev/null 2>&1; then
+    configured_main_branch="$(git config --file "$config_file" --get governance.mainBranch)"
+    if [[ -z "$configured_main_branch" ]]; then
+      print_error "${config_file} 中 governance.mainBranch 不能为空。"
+    fi
+  fi
+
+  while IFS= read -r key; do
+    [[ -z "$key" ]] && continue
+    path="${key#submodule.}"
+    path="${path%.branch}"
+    value="$(git config --file "$config_file" --get "$key")"
+
+    if [[ -z "$value" ]]; then
+      print_error "${config_file} 中 ${key} 不能为空。"
       continue
     fi
-
-    key="$(trim "${line%%=*}")"
-    value="$(trim "${line#*=}")"
-
-    if [[ -z "$key" || -z "$value" ]]; then
-      print_error "${branch_config_file}:${line_no} 配置不能为空。"
+    if ! submodule_exists "$path"; then
+      print_error "${config_file} 配置了不存在的子模块 '$path'。"
       continue
     fi
-
-    if [[ "$key" == "main" ]]; then
-      configured_main_branch="$value"
-      continue
-    fi
-
-    if ! submodule_exists "$key"; then
-      print_error "${branch_config_file}:${line_no} 配置了不存在的子模块 '$key'。"
-      continue
-    fi
-
-    configured_submodule_paths+=("$key")
+    configured_submodule_paths+=("$path")
     configured_submodule_branches+=("$value")
-  done < "$branch_config_file"
+  done < <(git config --file "$config_file" --name-only --get-regexp '^submodule\..*\.branch$' 2>/dev/null || true)
 }
 
 align_branch_config() {
@@ -201,7 +195,7 @@ align_branch_config() {
     git -C "$path" pull --ff-only origin "$branch"
   done
 
-  echo "分支已根据 ${branch_config_file} 处理到一致状态。"
+  echo "分支已根据 ${config_file} 处理到一致状态。"
 }
 
 check_branch_config() {
@@ -212,10 +206,10 @@ check_branch_config() {
   local status=""
   local choice=""
 
-  [[ -f "$branch_config_file" ]] || return 0
-
-  load_branch_config
+  load_config
   [[ "$has_error" -ne 0 ]] && return
+
+  [[ -n "$configured_main_branch" || ${#configured_submodule_paths[@]} -gt 0 ]] || return 0
 
   if is_interactive; then
     exec 3>/dev/tty
@@ -263,7 +257,7 @@ check_branch_config() {
   [[ "$branch_mismatch_found" -eq 0 ]] && return 0
 
   if ! is_interactive; then
-    print_error "当前分支与 ${branch_config_file} 不一致。非交互环境已阻止 push。"
+    print_error "当前分支与 ${config_file} 不一致。非交互环境已阻止 push。"
     return
   fi
 

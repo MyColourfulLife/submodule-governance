@@ -70,42 +70,32 @@ chmod +x \
   "$tool_dir/pre-push-hook.sh" \
   "$tool_dir/install-hooks.sh"
 
-config_file="$target_repo/.submodule-governance.env"
-if [[ ! -f "$config_file" ]]; then
-  cat >"$config_file" <<EOF
-# 0: only warn when submodule HEAD is not pushed to upstream.
-# 1: fail and block push when submodule HEAD is not pushed to upstream.
-SUBMODULE_REQUIRE_PUSHED=$strict_mode
-EOF
-else
-  if grep -q '^SUBMODULE_REQUIRE_PUSHED=' "$config_file"; then
-    sed -i.bak "s/^SUBMODULE_REQUIRE_PUSHED=.*/SUBMODULE_REQUIRE_PUSHED=$strict_mode/" "$config_file"
-    rm -f "$config_file.bak"
-  else
-    printf "\nSUBMODULE_REQUIRE_PUSHED=%s\n" "$strict_mode" >> "$config_file"
-  fi
+config_file="$target_repo/.submodule-governance.config"
+strict_value="false"
+if [[ "$strict_mode" == "1" ]]; then
+  strict_value="true"
 fi
 
-branch_config_file="$target_repo/.submodule-governance.branches"
-if [[ ! -f "$branch_config_file" ]]; then
-  cat >"$branch_config_file" <<'EOF'
-# 主仓库与子模块分支规划配置。
-# 文件格式：模块路径=分支名
-# 默认不启用任何分支检查。
-# 需要启用时，取消注释并把分支名改成当前需求约定的分支。
-#
-# main=main
+if [[ ! -f "$config_file" ]]; then
+  cat >"$config_file" <<EOF
+[governance]
+    # false: only warn when submodule HEAD is not pushed to upstream.
+    # true: fail and block push when submodule HEAD is not pushed to upstream.
+    requirePushed = $strict_value
+    # mainBranch = main
 
-# 子模块配置示例：
-# 需要启用时，取消注释并把分支名改成当前需求约定的分支。
-# key 必须与 .gitmodules 中的子模块路径一致。
+# 子模块分支配置示例。subsection 名称必须与 .gitmodules 中的路径一致。
+# [submodule "ios"]
+#     branch = dev/v2.2.7/stable
 #
-# ios=dev/v2.2.7/stable
-# android=dev/v2.2.7/stable
-# libs=dev/v2.2.7/stable
-#
-# 如果暂时不需要分支规划，可以保留注释内容不变。
+# [submodule "android"]
+#     branch = dev/v2.2.7/stable
 EOF
+elif ! git config --file "$config_file" --list >/dev/null 2>&1; then
+  echo "Invalid Git config file: $config_file"
+  exit 1
+else
+  git config --file "$config_file" governance.requirePushed "$strict_value"
 fi
 
 (
@@ -123,7 +113,7 @@ echo "Bootstrap complete."
 echo "Target repo: $target_repo"
 echo "Tool dir: $tool_dir"
 if [[ "$strict_mode" == "1" ]]; then
-  echo "Mode: strict (SUBMODULE_REQUIRE_PUSHED=1)"
+  echo "Mode: strict (governance.requirePushed=true)"
 else
-  echo "Mode: non-strict (SUBMODULE_REQUIRE_PUSHED=0)"
+  echo "Mode: non-strict (governance.requirePushed=false)"
 fi

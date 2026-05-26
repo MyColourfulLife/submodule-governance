@@ -33,7 +33,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - 子模块未初始化或目录缺失时阻止 push，并提示执行 `.git/submodule-governance/submodule-sync.sh` 自动同步。
 - 子模块有未提交改动时阻止 push，避免本地脏状态混入主仓库判断。
 - 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时弹出中文修复菜单，可选择更新主仓库指针、恢复子模块、了解风险继续 push 或取消。
-- 如果存在 `.submodule-governance.branches`，会先检查主仓库和子模块分支是否与配置一致。
+- 如果 `.submodule-governance.config` 配置了期望分支，会先检查主仓库和子模块分支是否一致。
 - 主仓库已经 `git add <submodule>` 但还没 commit 时阻止 push。
 - 子模块 commit 未推送到上游时，默认只警告；开启严格模式后会阻止 push。
 - 提供 `.git/submodule-governance/submodule-sync.sh`，用于一键执行 `git submodule sync --recursive` 和 `git submodule update --init --recursive`。
@@ -44,8 +44,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `.git/submodule-governance/submodule-sync.sh`
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
-- `.submodule-governance.env`
-- `.submodule-governance.branches`（默认生成，建议由主仓库维护并纳入 Git 管理）
+- `.submodule-governance.config`（默认生成，建议由主仓库维护并纳入 Git 管理）
 - `.git/hooks/pre-push`（由脚本自动安装）
 
 默认不会在目标主仓库生成 `scripts/` 目录，也不会覆盖目标仓库已有的 `scripts/` 文件。
@@ -54,41 +53,41 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 
 默认不需要把治理脚本纳入目标主仓库的 Git 管理。治理脚本会安装到 `.git/submodule-governance/`，这个目录属于本地 Git 元数据，不会被业务仓库提交。
 
-建议纳入目标主仓库 Git 管理的是 `.submodule-governance.env`，因为它决定团队是否启用严格模式。这样团队成员拿到主仓库后，执行一次 `bootstrap.sh` 即可得到一致的本地 hook 行为。
+建议纳入目标主仓库 Git 管理的是 `.submodule-governance.config`，因为它同时决定团队是否启用严格模式，以及主仓库与子模块的分支规划。这样团队成员拿到主仓库后，执行一次 `bootstrap.sh` 即可得到一致的本地 hook 行为。
 
-`.submodule-governance.branches` 会由 `bootstrap.sh` 默认生成。它用于统一规划主仓库和子模块分支，建议纳入主仓库 Git 管理。
+## 统一配置文件
 
-## 分支配置文件
-
-`bootstrap.sh` 会在主仓库根目录生成 `.submodule-governance.branches`：
+`bootstrap.sh` 会在主仓库根目录生成 Git config 格式的 `.submodule-governance.config`：
 
 ```ini
-# 主仓库与子模块分支规划配置。
-# 文件格式：模块路径=分支名
-# 默认不启用任何分支检查。
-# 需要启用时，取消注释并把分支名改成当前需求约定的分支。
-#
-# main=main
+[governance]
+    # false: only warn when submodule HEAD is not pushed to upstream.
+    # true: fail and block push when submodule HEAD is not pushed to upstream.
+    requirePushed = false
+    # mainBranch = main
 
-# 子模块配置示例：
-# 需要启用时，取消注释并把分支名改成当前需求约定的分支。
-# key 必须与 .gitmodules 中的子模块路径一致。
+# subsection 名称必须与 .gitmodules 中的子模块路径一致。
+# [submodule "ios"]
+#     branch = dev/v2.2.7/stable
 #
-# ios=dev/v2.2.7/stable
-# android=dev/v2.2.7/stable
-# libs=dev/v2.2.7/stable
-#
-# 如果暂时不需要分支规划，可以保留注释内容不变。
+# [submodule "android"]
+#     branch = dev/v2.2.7/stable
 ```
 
 含义：
 
-- `main` 表示主仓库期望分支。
-- 其他 key 表示子模块路径，必须和 `.gitmodules` 中的路径一致。
-- value 表示期望分支。
+- `governance.requirePushed` 表示是否开启严格模式，`true` 会在子模块 HEAD 未推送到 upstream 时阻止 push。
+- `governance.mainBranch` 表示主仓库期望分支；不配置时不检查主仓库分支。
+- `submodule "<path>".branch` 表示子模块期望分支，`<path>` 必须和 `.gitmodules` 中的路径一致。
 - 子模块默认 remote 为 `origin`。
-- 默认所有配置都是注释，不启用任何分支检查。
-- 如果不需要分支规划，可以保留注释内容不变，或删除该配置文件以保持原有检查行为。
+- 默认不配置任何分支，不启用分支检查。
+
+配置也可以通过 Git 命令修改，例如：
+
+```bash
+git config --file .submodule-governance.config governance.mainBranch dev/v2.2.7/stable
+git config --file .submodule-governance.config submodule.ios.branch dev/v2.2.7/stable
+```
 
 `git push` 前会优先执行分支匹配检查：
 
@@ -150,16 +149,16 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 /path/to/submodule-governance-template/bootstrap.sh /path/to/target-repo --strict
 ```
 
-安装后也可以通过修改 `.submodule-governance.env` 切换：
+安装后也可以通过 Git config 命令切换：
 
 ```bash
-SUBMODULE_REQUIRE_PUSHED=1
+git config --file .submodule-governance.config governance.requirePushed true
 ```
 
 如果希望非严格模式：
 
 ```bash
-SUBMODULE_REQUIRE_PUSHED=0
+git config --file .submodule-governance.config governance.requirePushed false
 ```
 
 ## 目标仓库中的日常使用
