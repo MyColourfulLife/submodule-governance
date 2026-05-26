@@ -27,8 +27,20 @@ if [[ "$hooks_dir" == "$repo_root/.husky/_" ]]; then
   use_husky_wrapper=1
 fi
 
-if [[ -f "$hook_file" ]] &&
-   ! grep -q 'submodule-governance/pre-push-hook.sh' "$hook_file"; then
+if [[ -f "$hook_file" ]]; then
+  if grep -q 'submodule-governance/pre-push-hook.sh' "$hook_file"; then
+    echo "Existing pre-push hook already invokes submodule governance: $hook_file"
+    exit 0
+  fi
+
+  if [[ "$use_husky_wrapper" != "1" ]] &&
+     cmp -s "$script_dir/pre-push-hook.sh" "$hook_file"; then
+    cp "$script_dir/pre-push-hook.sh" "$hook_file"
+    chmod +x "$hook_file"
+    echo "Updated pre-push hook at $hook_file"
+    exit 0
+  fi
+
   echo "Existing pre-push hook was not overwritten: $hook_file"
   echo "Add this command to that hook, then run installation again:"
   echo '  "$(git rev-parse --git-dir)/submodule-governance/pre-push-hook.sh" "$@"'

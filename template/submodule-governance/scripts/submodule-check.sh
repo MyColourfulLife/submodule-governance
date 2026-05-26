@@ -432,7 +432,11 @@ for path in "${submodule_paths[@]}"; do
   fi
 
   if [[ -n "$(git -C "$path" status --porcelain)" ]]; then
-    print_error "子模块 '$path' 存在未提交改动。请先提交、暂存或还原子模块中的改动。"
+    if [[ "$require_pushed" == "1" ]]; then
+      print_error "子模块 '$path' 存在未提交改动。请先提交、暂存或还原子模块中的改动。"
+    else
+      print_warn "子模块 '$path' 存在未提交改动；这些改动不会包含在主仓库子模块指针 commit 中。"
+    fi
   fi
 
   indexed_sha="$(git ls-files -s -- "$path" | awk '{print $2}')"

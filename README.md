@@ -31,7 +31,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 
 - `git push` 前自动检查：安装后写入当前 Git 实际使用的 `pre-push` hook；已启用 Husky 时会写入 `.husky/pre-push`，开发者日常不需要手动执行检查脚本。
 - 子模块未初始化或目录缺失时阻止 push，并提示执行 `.git/submodule-governance/submodule-sync.sh` 自动同步。
-- 子模块有未提交改动时阻止 push，避免本地脏状态混入主仓库判断。
+- 子模块有未提交改动时，非严格模式会警告这些内容不会包含在主仓库指针 commit 中；严格模式会阻止 push。
 - 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时弹出中文修复菜单，可选择更新主仓库指针、恢复子模块、了解风险继续 push 或取消。
 - 如果 `.submodule-governance.config` 配置了期望分支，会先检查主仓库和子模块分支是否一致。
 - 主仓库已经 `git add <submodule>` 但还没 commit 时阻止 push。
@@ -76,7 +76,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 
 含义：
 
-- `governance.requirePushed` 表示是否开启严格模式，`true` 会在子模块 HEAD 未推送到 upstream 时阻止 push。
+- `governance.requirePushed` 表示是否开启严格模式，`true` 会在子模块 HEAD 未推送到 upstream 或子模块存在未提交内容时阻止 push。
 - `governance.mainBranch` 表示主仓库期望分支；不配置时不检查主仓库分支。
 - `submodule "<path>".branch` 表示子模块期望分支，`<path>` 必须和 `.gitmodules` 中的路径一致。
 - 子模块默认 remote 为 `origin`。
@@ -212,7 +212,7 @@ git config --file .submodule-governance.config governance.requirePushed false
   [4] 取消
 ```
 
-选择 `[1]` 会记录需要更新的主仓库指针；脚本会继续处理其余不一致的子模块，全部选择完成后，再将所有选择更新的指针合并生成一个主仓库 commit。如果子模块内部仍有未提交改动或其他阻断问题，脚本会在进入修复菜单前退出，不会留下部分修复 commit。
+选择 `[1]` 会记录需要更新的主仓库指针；脚本会继续处理其余不一致的子模块，全部选择完成后，再将所有选择更新的指针合并生成一个主仓库 commit。非严格模式下，子模块内部未提交内容会提示风险但不纳入指针 commit；严格模式或出现其他阻断问题时，脚本会在进入修复菜单前退出，不会留下部分修复 commit。
 
 ```text
 已修复：主仓库子模块指针已更新并生成 commit（<commit_sha> chore(submodule): update pointers）。
