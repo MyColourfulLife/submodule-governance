@@ -211,7 +211,7 @@ git config --file .submodule-governance.config governance.requirePushed false
 选择 `[1]` 会自动执行 `git add <submodule_path>` 并生成主仓库 commit，用于更新子模块指针。修复完成后会提示：
 
 ```text
-已修复：主仓库子模块指针已更新并生成 commit（<commit_sha> Update <submodule_path> submodule pointer，<submodule_path>: <old_commit> -> <new_commit>）。
+已修复：主仓库子模块指针已更新并生成 commit（<commit_sha> chore(submodule): update <submodule_path> pointer，<submodule_path>: <old_commit> -> <new_commit>）。
 问题已修复：
   [y] 自动 push
   [n] 手动 push

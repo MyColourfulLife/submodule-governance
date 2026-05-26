@@ -329,7 +329,7 @@ fix_pointer_mismatch() {
   case "$choice" in
     1)
       git add "$path"
-      commit_message="Update ${path} submodule pointer"
+      commit_message="chore(submodule): update ${path} pointer"
       git commit -m "$commit_message" -- "$path"
       commit_sha="$(git rev-parse --short HEAD)"
       echo "已修复：主仓库子模块指针已更新并生成 commit（${commit_sha} ${commit_message}，${path}: ${indexed_sha} -> ${head_sha}）。"
