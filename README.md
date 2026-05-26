@@ -212,10 +212,12 @@ git config --file .submodule-governance.config governance.requirePushed false
   [4] 取消
 ```
 
-选择 `[1]` 会自动执行 `git add <submodule_path>` 并生成主仓库 commit，用于更新子模块指针。修复完成后会提示：
+选择 `[1]` 会记录需要更新的主仓库指针；脚本会继续处理其余不一致的子模块，全部选择完成后，再将所有选择更新的指针合并生成一个主仓库 commit。如果子模块内部仍有未提交改动或其他阻断问题，脚本会在进入修复菜单前退出，不会留下部分修复 commit。
 
 ```text
-已修复：主仓库子模块指针已更新并生成 commit（<commit_sha> chore(submodule): update <submodule_path> pointer，<submodule_path>: <old_commit> -> <new_commit>）。
+已修复：主仓库子模块指针已更新并生成 commit（<commit_sha> chore(submodule): update pointers）。
+  - ios: <old_commit> -> <new_commit>
+  - android: <old_commit> -> <new_commit>
 问题已修复：
   [y] 自动 push
   [n] 手动 push
@@ -224,7 +226,7 @@ git config --file .submodule-governance.config governance.requirePushed false
 
 选择 `[y]` 会自动执行 `git push --no-verify`，避免 hook 递归触发；选择 `[n]` 会停止本次 push，开发者确认后手动执行 `git push`。
 
-选择 `[2]` 会将子模块 checkout 回主仓库记录的 commit，适用于本地子模块误切到其他 commit 的情况。修复完成后同样会询问自动 push 或手动 push。
+选择 `[2]` 会将子模块 checkout 回主仓库记录的 commit，适用于本地子模块误切到其他 commit 的情况。所有子模块处理完成后，同样只询问一次自动 push 或手动 push。
 
 选择 `[3]` 不做修改，并继续本次 push。此时主仓库远端仍然记录旧的子模块 commit，其他人拉取主仓库后不会自动拿到你本地当前的子模块 commit。
 

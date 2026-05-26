@@ -17,6 +17,9 @@ force_push_without_checks=0
 mismatch_paths=()
 mismatch_indexed_shas=()
 mismatch_head_shas=()
+update_pointer_paths=()
+update_pointer_indexed_shas=()
+update_pointer_head_shas=()
 config_file=".submodule-governance.config"
 configured_main_branch=""
 configured_submodule_paths=()
@@ -298,8 +301,6 @@ fix_pointer_mismatch() {
   local indexed_sha="$2"
   local head_sha="$3"
   local choice=""
-  local commit_message=""
-  local commit_sha=""
 
   if ! is_interactive; then
     print_error "子模块 '$path' 当前 HEAD ($head_sha) 与主仓库记录的 commit ($indexed_sha) 不一致。请执行：git add $path && git commit"
@@ -328,11 +329,10 @@ fix_pointer_mismatch() {
 
   case "$choice" in
     1)
-      git add "$path"
-      commit_message="chore(submodule): update ${path} pointer"
-      git commit -m "$commit_message" -- "$path"
-      commit_sha="$(git rev-parse --short HEAD)"
-      echo "已修复：主仓库子模块指针已更新并生成 commit（${commit_sha} ${commit_message}，${path}: ${indexed_sha} -> ${head_sha}）。"
+      update_pointer_paths+=("$path")
+      update_pointer_indexed_shas+=("$indexed_sha")
+      update_pointer_head_shas+=("$head_sha")
+      echo "已选择：将在完成全部子模块处理后，将主仓库指针更新到 '${path}' 当前 commit。"
       needs_repush=1
       ;;
     2)
@@ -353,6 +353,42 @@ fix_pointer_mismatch() {
       print_error "无效选项 '$choice'，push 已阻止。"
       ;;
   esac
+}
+
+commit_pointer_updates() {
+  local commit_message=""
+  local commit_sha=""
+  local i=0
+
+  [[ ${#update_pointer_paths[@]} -gt 0 ]] || return 0
+
+  git add "${update_pointer_paths[@]}"
+  if [[ ${#update_pointer_paths[@]} -eq 1 ]]; then
+    commit_message="chore(submodule): update ${update_pointer_paths[0]} pointer"
+  else
+    commit_message="chore(submodule): update pointers"
+  fi
+
+  if ! git commit -m "$commit_message" -- "${update_pointer_paths[@]}"; then
+    print_error "自动创建子模块指针 commit 失败。已保留暂存内容，请处理提交错误后重试。"
+    return
+  fi
+
+  commit_sha="$(git rev-parse --short HEAD)"
+  echo "已修复：主仓库子模块指针已更新并生成 commit（${commit_sha} ${commit_message}）。"
+  for i in "${!update_pointer_paths[@]}"; do
+    echo "  - ${update_pointer_paths[$i]}: ${update_pointer_indexed_shas[$i]} -> ${update_pointer_head_shas[$i]}"
+  done
+}
+
+check_staged_submodule_pointers() {
+  local staged_path=""
+
+  while IFS= read -r staged_path; do
+    if printf '%s\n' "${submodule_paths[@]}" | grep -Fxq "$staged_path"; then
+      print_error "子模块指针 '$staged_path' 已暂存但尚未提交。请先提交主仓库。"
+    fi
+  done < <(git diff --cached --name-only --diff-filter=AM)
 }
 
 submodule_paths=()
@@ -425,6 +461,13 @@ for path in "${submodule_paths[@]}"; do
   fi
 done
 
+check_staged_submodule_pointers
+
+if [[ "$has_error" -ne 0 ]]; then
+  echo "存在需要先手动处理的问题，未执行子模块指针修复，已阻止 push。"
+  exit 1
+fi
+
 if [[ ${#mismatch_paths[@]} -gt 0 ]]; then
   if is_interactive; then
     {
@@ -444,20 +487,17 @@ if [[ ${#mismatch_paths[@]} -gt 0 ]]; then
   done
 fi
 
-if git diff --cached --name-only --diff-filter=AM | grep -qE '.*'; then
-  while IFS= read -r staged_path; do
-    if printf '%s\n' "${submodule_paths[@]}" | grep -Fxq "$staged_path"; then
-      print_error "子模块指针 '$staged_path' 已暂存但尚未提交。请先提交主仓库。"
-    fi
-  done < <(git diff --cached --name-only)
-fi
-
 if [[ "$has_error" -ne 0 ]]; then
   echo "子模块检查未通过，已阻止 push。"
   exit 1
 fi
 
 if [[ "$needs_repush" -ne 0 ]]; then
+  commit_pointer_updates
+  if [[ "$has_error" -ne 0 ]]; then
+    echo "子模块检查未通过，已阻止 push。"
+    exit 1
+  fi
   ask_push_after_repair
   if [[ "$auto_push_done" -ne 0 ]]; then
     exit 0
