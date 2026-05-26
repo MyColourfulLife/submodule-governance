@@ -29,7 +29,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 
 ## 核心功能
 
-- `git push` 前自动检查：安装后默认写入 `.git/hooks/pre-push`，开发者日常不需要手动执行检查脚本。
+- `git push` 前自动检查：安装后写入当前 Git 实际使用的 `pre-push` hook；已启用 Husky 时会写入 `.husky/pre-push`，开发者日常不需要手动执行检查脚本。
 - 子模块未初始化或目录缺失时阻止 push，并提示执行 `.git/submodule-governance/submodule-sync.sh` 自动同步。
 - 子模块有未提交改动时阻止 push，避免本地脏状态混入主仓库判断。
 - 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时弹出中文修复菜单，可选择更新主仓库指针、恢复子模块、了解风险继续 push 或取消。
@@ -45,7 +45,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
 - `.submodule-governance.config`（默认生成，建议由主仓库维护并纳入 Git 管理）
-- `.git/hooks/pre-push`（由脚本自动安装）
+- 当前生效的 `pre-push` hook（普通仓库为 `.git/hooks/pre-push`，Husky 仓库为 `.husky/pre-push`）
 
 默认不会在目标主仓库生成 `scripts/` 目录，也不会覆盖目标仓库已有的 `scripts/` 文件。
 
@@ -165,6 +165,8 @@ git config --file .submodule-governance.config governance.requirePushed false
 
 正常情况下，开发者不需要手动执行检查脚本。只要正常 `git push`，`pre-push` hook 会自动运行检查。
 
+普通 Git hook 安装在本地 Git 元数据中，切换业务分支不需要重新安装。使用 Husky 时，`.husky/pre-push` 属于仓库文件，建议将它随 `.submodule-governance.config` 一起纳入 Git 管理并合并到需要治理的分支；分支已经包含该 hook 后，也无需每次切换都重新安装。重新克隆仓库、删除/替换 hook、修改 `core.hooksPath`，或需要更新已安装的治理脚本版本时，应重新运行 `bootstrap.sh`。
+
 如果切分支、拉取代码后发现子模块未同步，或 hook 提示子模块未初始化/目录缺失，可以执行：
 
 ```bash
@@ -184,6 +186,8 @@ git config --file .submodule-governance.config governance.requirePushed false
 ```bash
 .git/submodule-governance/install-hooks.sh
 ```
+
+如果目标仓库已有自定义 `pre-push` hook，安装脚本不会直接覆盖它，而会提示将治理命令合并到现有 hook 中。
 
 ## 关键防护场景
 
