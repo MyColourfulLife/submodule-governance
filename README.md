@@ -2,6 +2,18 @@
 
 这是一个可复用模板，用于给现有主仓库快速接入本地 Git Submodule 治理能力。执行 `bootstrap.sh` 后，会默认安装只读的 `pre-push` 检查 hook；需要交互修复时，通过治理命令在终端完成。
 
+## 使用文档入口
+
+根据团队成员的操作方式选择教程：
+
+| 使用方式 | 适合对象 | 教程 |
+| --- | --- | --- |
+| 命令行交互 | 使用 Terminal 完成检查、修复与推送的开发者 | [命令行使用教程](docs/command-line-guide.md) |
+| SourceTree | 使用 GUI 推送，并通过 Custom Actions 处理明确操作的开发者 | [SourceTree 使用教程](docs/sourcetree-guide.md) |
+| 本地 MCP 服务 | 希望由 Agent 只读检查或在确认后执行受控修复的开发者 | [本地 MCP 服务接入教程](docs/local-mcp-guide.md) |
+
+三种入口复用同一套治理规则：hook 始终只读；产生 commit、切换子模块 checkout 或调用 Agent 写工具的操作都需要明确触发。
+
 ## 项目背景
 
 很多业务项目由一个主仓库和多个 Git Submodule 子仓库组成。例如 `rn_module` 主仓库下面挂载 `ios` 和 `android` 两个子模块。
@@ -170,7 +182,7 @@ git config --file .submodule-governance.config governance.requirePushed false
 
 ## 目标仓库中的日常使用
 
-正常情况下，开发者可以正常执行 `git push`，`pre-push` hook 会只读运行检查。如果检查提示子模块指针或配置分支不一致，请在终端执行治理 push 命令：
+正常情况下，开发者可以正常执行 `git push`，`pre-push` hook 会只读运行检查。如果检查提示子模块指针或配置分支不一致，可在终端执行治理 push 命令：
 
 ```bash
 .git/submodule-governance/submodule-push.sh
@@ -208,9 +220,11 @@ git config --file .submodule-governance.config governance.requirePushed false
 
 如果目标仓库已有自定义 `pre-push` hook，安装脚本不会直接覆盖它，而会提示将治理命令合并到现有 hook 中。
 
+完整的终端安装、配置、菜单选择和问题处理步骤，请参阅 [命令行使用教程](docs/command-line-guide.md)。
+
 ## SourceTree 集成
 
-SourceTree 中的普通 Push 会执行只读 `pre-push` 检查，因此不会在 GUI 操作过程中突然修改代码或创建 commit。若检查阻止 push，可通过 `Preferences > Custom Actions` 添加下列常用动作，脚本路径选择当前仓库 `.git/submodule-governance/` 下的对应文件：
+SourceTree 中的普通 Push 会执行只读 `pre-push` 检查，因此不会在 GUI 操作过程中突然修改代码或创建 commit。建议配置三个 Custom Actions：
 
 | 动作名称 | 脚本 | 行为 |
 | --- | --- | --- |
@@ -218,39 +232,18 @@ SourceTree 中的普通 Push 会执行只读 `pre-push` 检查，因此不会在
 | `Submodule - Accept Current Pointers` | `submodule-accept-pointers.sh` | 将全部当前子模块 SHA 汇总生成一条主仓库 commit，不执行 push |
 | `Submodule - Sync Recorded Pointers` | `submodule-sync.sh` | 将子模块同步到主仓库已记录的 SHA |
 
-`Accept Current Pointers` 不会自动处理分支配置不一致，也不会在严格模式下接受脏子模块或未推送的子模块 commit；遇到这些需要判断的情况，应从 SourceTree 打开 Terminal 并运行 `.git/submodule-governance/submodule-fix.sh` 或 `.git/submodule-governance/submodule-push.sh`。
+Custom Actions 的具体配置值、GUI 工作流和转入 Terminal 的判断标准，请参阅 [SourceTree 使用教程](docs/sourcetree-guide.md)。
 
 ## CLI 与 Agent 接入
 
-CLI 复用与 hook 相同的治理状态采集逻辑，并提供结构化 JSON 输出：
+CLI 复用与 hook 相同的治理状态采集逻辑，并提供结构化 JSON 输出；MCP server 是建立在 CLI 能力上的本地 Agent 适配层：
 
 ```bash
 node .git/submodule-governance/cli/submodule-governance.mjs status --json
-node .git/submodule-governance/cli/submodule-governance.mjs check
-node .git/submodule-governance/cli/submodule-governance.mjs accept-pointers
-node .git/submodule-governance/cli/submodule-governance.mjs sync
-```
-
-其中 `status` 和 `check` 为只读操作；`accept-pointers` 会创建主仓库 commit；`sync` 会修改子模块 checkout。终端用户仍可以通过 `fix` 与 `push` 子命令进入交互修复流程。
-
-Agent 接入优先使用 MCP server，它是 CLI 能力的薄适配层，不重新实现治理规则：
-
-```bash
 node .git/submodule-governance/cli/submodule-governance-mcp.mjs
 ```
 
-启动 MCP server 时，应将进程工作目录设置为需要治理的主仓库根目录；server 会在该工作目录对应的 Git 仓库中执行工具。
-
-MCP tools：
-
-| Tool | 是否修改仓库 | 作用 |
-| --- | --- | --- |
-| `get_submodule_status` | 否 | 返回结构化治理状态 |
-| `check_submodules` | 否 | 运行与 `pre-push` 一致的检查 |
-| `accept_current_pointers` | 是 | 按策略生成一条 pointer commit |
-| `sync_recorded_pointers` | 是 | 将子模块 checkout 到主仓库记录的 SHA |
-
-调用会修改仓库的工具前，Agent 应先向用户确认动作与影响；MCP server 也会拒绝未显式传入 `confirm: true` 的写操作。
+启动 MCP server 时，应将进程工作目录设置为需要治理的主仓库根目录；server 会拒绝未显式传入 `confirm: true` 的写操作。完整的 stdio MCP 配置示例、工具说明和 Agent 安全流程，请参阅 [本地 MCP 服务接入教程](docs/local-mcp-guide.md)。
 
 ## 关键防护场景
 
