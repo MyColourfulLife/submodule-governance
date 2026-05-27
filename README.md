@@ -1,6 +1,6 @@
 # 子模块治理模板（Submodule Governance Template）
 
-这是一个可复用模板，用于给现有主仓库快速接入本地 Git Submodule 治理能力。执行 `bootstrap.sh` 后，会默认安装 `pre-push` hook；日常开发者正常使用 `git push` 即可，hook 会在 push 前自动检查子模块状态。
+这是一个可复用模板，用于给现有主仓库快速接入本地 Git Submodule 治理能力。执行 `bootstrap.sh` 后，会默认安装只读的 `pre-push` 检查 hook；需要交互修复时，通过治理命令在终端完成。
 
 ## 项目背景
 
@@ -29,10 +29,11 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 
 ## 核心功能
 
-- `git push` 前自动检查：安装后写入当前 Git 实际使用的 `pre-push` hook；已启用 Husky 时会写入 `.husky/pre-push`，开发者日常不需要手动执行检查脚本。
+- `git push` 前只读自动检查：hook 只报告风险或阻止 push，不会在 push 过程中修改工作区或创建 commit。
+- 终端交互修复与推送：`.git/submodule-governance/submodule-push.sh` 会处理全部子模块选择、汇总生成 commit 后执行 push。
 - 子模块未初始化或目录缺失时阻止 push，并提示执行 `.git/submodule-governance/submodule-sync.sh` 自动同步。
 - 子模块有未提交改动时，非严格模式会警告这些内容不会包含在主仓库指针 commit 中；严格模式会阻止 push。
-- 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时弹出中文修复菜单，可选择更新主仓库指针、恢复子模块、了解风险继续 push 或取消。
+- 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时，hook 提示使用修复命令；终端修复命令提供中文菜单，可选择更新主仓库指针、恢复子模块、了解风险继续 push 或取消。
 - 如果 `.submodule-governance.config` 配置了期望分支，会先检查主仓库和子模块分支是否一致。
 - 主仓库已经 `git add <submodule>` 但还没 commit 时阻止 push。
 - 子模块 commit 未推送到上游时，默认只警告；开启严格模式后会阻止 push。
@@ -41,6 +42,8 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 ## 模板会安装哪些文件
 
 - `.git/submodule-governance/submodule-check.sh`
+- `.git/submodule-governance/submodule-fix.sh`
+- `.git/submodule-governance/submodule-push.sh`
 - `.git/submodule-governance/submodule-sync.sh`
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
@@ -163,7 +166,13 @@ git config --file .submodule-governance.config governance.requirePushed false
 
 ## 目标仓库中的日常使用
 
-正常情况下，开发者不需要手动执行检查脚本。只要正常 `git push`，`pre-push` hook 会自动运行检查。
+正常情况下，开发者可以正常执行 `git push`，`pre-push` hook 会只读运行检查。如果检查提示子模块指针或配置分支不一致，请在终端执行治理 push 命令：
+
+```bash
+.git/submodule-governance/submodule-push.sh
+```
+
+它会先提供修复菜单，完成修复并生成汇总 commit 后再执行 `git push`。
 
 普通 Git hook 安装在本地 Git 元数据中，切换业务分支不需要重新安装。使用 Husky 时，`.husky/pre-push` 属于仓库文件，建议将它随 `.submodule-governance.config` 一起纳入 Git 管理并合并到需要治理的分支；分支已经包含该 hook 后，也无需每次切换都重新安装。重新克隆仓库、删除/替换 hook、修改 `core.hooksPath`，或需要更新已安装的治理脚本版本时，应重新运行 `bootstrap.sh`。
 
@@ -175,10 +184,16 @@ git config --file .submodule-governance.config governance.requirePushed false
 
 它会自动同步子模块 URL 和主仓库记录的子模块 commit。
 
-如果想在 push 前主动检查，也可以手动执行：
+如果想在 push 前主动进行只读检查，可以手动执行：
 
 ```bash
 .git/submodule-governance/submodule-check.sh
+```
+
+如果只想交互修复而暂不 push，可以执行：
+
+```bash
+.git/submodule-governance/submodule-fix.sh
 ```
 
 如果 hook 丢失，可重新安装：
@@ -191,8 +206,7 @@ git config --file .submodule-governance.config governance.requirePushed false
 
 ## 关键防护场景
 
-当子模块已经有新的 commit，但主仓库没有更新子模块指针时，
-主仓库执行 `git push` 会先汇总所有不一致的子模块，再逐个弹出修复菜单：
+当子模块已经有新的 commit，但主仓库没有更新子模块指针时，普通 `git push` 的 hook 只会阻止并提示执行 `.git/submodule-governance/submodule-push.sh`。在终端执行该治理 push 命令后，会先汇总所有不一致的子模块，再逐个弹出修复菜单：
 
 ```text
 发现 2 个子模块与主仓库记录不一致：
@@ -218,15 +232,12 @@ git config --file .submodule-governance.config governance.requirePushed false
 已修复：主仓库子模块指针已更新并生成 commit（<commit_sha> chore(submodule): update pointers）。
   - ios: <old_commit> -> <new_commit>
   - android: <old_commit> -> <new_commit>
-问题已修复：
-  [y] 自动 push
-  [n] 手动 push
-请输入选项 [y/n]:
+子模块修复完成。
 ```
 
-选择 `[y]` 会自动执行 `git push --no-verify`，避免 hook 递归触发；选择 `[n]` 会停止本次 push，开发者确认后手动执行 `git push`。
+通过 `submodule-push.sh` 发起时，修复完成后会继续执行正常 `git push`，由只读 hook 再次确认最终状态；仅执行 `submodule-fix.sh` 时则不会 push。
 
-选择 `[2]` 会将子模块 checkout 回主仓库记录的 commit，适用于本地子模块误切到其他 commit 的情况。所有子模块处理完成后，同样只询问一次自动 push 或手动 push。
+选择 `[2]` 会将子模块 checkout 回主仓库记录的 commit，适用于本地子模块误切到其他 commit 的情况。
 
 选择 `[3]` 不做修改，并继续本次 push。此时主仓库远端仍然记录旧的子模块 commit，其他人拉取主仓库后不会自动拿到你本地当前的子模块 commit。
 
@@ -234,4 +245,4 @@ git config --file .submodule-governance.config governance.requirePushed false
 
 也就是说，正确流程是：先在子模块仓库提交并推送代码，再回到主仓库提交子模块指针变化。这个模板会帮助开发者在忘记第二步时及时发现，并给出可选择的修复动作。
 
-如果脚本运行在非交互环境（例如 CI 或管道），不会弹菜单，会直接输出中文错误并阻止。
+如果脚本运行在非交互环境（例如 GUI、CI 或管道），只读检查不会弹菜单，会直接输出中文错误并阻止需要人工判断的 push。
