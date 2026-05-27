@@ -45,6 +45,9 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `.git/submodule-governance/submodule-fix.sh`
 - `.git/submodule-governance/submodule-push.sh`
 - `.git/submodule-governance/submodule-accept-pointers.sh`
+- `.git/submodule-governance/submodule-state.sh`
+- `.git/submodule-governance/cli/submodule-governance.mjs`
+- `.git/submodule-governance/cli/submodule-governance-mcp.mjs`
 - `.git/submodule-governance/submodule-sync.sh`
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
@@ -216,6 +219,38 @@ SourceTree 中的普通 Push 会执行只读 `pre-push` 检查，因此不会在
 | `Submodule - Sync Recorded Pointers` | `submodule-sync.sh` | 将子模块同步到主仓库已记录的 SHA |
 
 `Accept Current Pointers` 不会自动处理分支配置不一致，也不会在严格模式下接受脏子模块或未推送的子模块 commit；遇到这些需要判断的情况，应从 SourceTree 打开 Terminal 并运行 `.git/submodule-governance/submodule-fix.sh` 或 `.git/submodule-governance/submodule-push.sh`。
+
+## CLI 与 Agent 接入
+
+CLI 复用与 hook 相同的治理状态采集逻辑，并提供结构化 JSON 输出：
+
+```bash
+node .git/submodule-governance/cli/submodule-governance.mjs status --json
+node .git/submodule-governance/cli/submodule-governance.mjs check
+node .git/submodule-governance/cli/submodule-governance.mjs accept-pointers
+node .git/submodule-governance/cli/submodule-governance.mjs sync
+```
+
+其中 `status` 和 `check` 为只读操作；`accept-pointers` 会创建主仓库 commit；`sync` 会修改子模块 checkout。终端用户仍可以通过 `fix` 与 `push` 子命令进入交互修复流程。
+
+Agent 接入优先使用 MCP server，它是 CLI 能力的薄适配层，不重新实现治理规则：
+
+```bash
+node .git/submodule-governance/cli/submodule-governance-mcp.mjs
+```
+
+启动 MCP server 时，应将进程工作目录设置为需要治理的主仓库根目录；server 会在该工作目录对应的 Git 仓库中执行工具。
+
+MCP tools：
+
+| Tool | 是否修改仓库 | 作用 |
+| --- | --- | --- |
+| `get_submodule_status` | 否 | 返回结构化治理状态 |
+| `check_submodules` | 否 | 运行与 `pre-push` 一致的检查 |
+| `accept_current_pointers` | 是 | 按策略生成一条 pointer commit |
+| `sync_recorded_pointers` | 是 | 将子模块 checkout 到主仓库记录的 SHA |
+
+调用会修改仓库的工具前，Agent 应先向用户确认动作与影响。
 
 ## 关键防护场景
 

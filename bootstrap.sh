@@ -58,12 +58,16 @@ esac
 
 tool_dir="$git_dir/submodule-governance"
 mkdir -p "$tool_dir"
+mkdir -p "$tool_dir/cli"
 
 cp "$template_root/scripts/submodule-check.sh" "$tool_dir/submodule-check.sh"
 cp "$template_root/scripts/submodule-common.sh" "$tool_dir/submodule-common.sh"
 cp "$template_root/scripts/submodule-fix.sh" "$tool_dir/submodule-fix.sh"
 cp "$template_root/scripts/submodule-push.sh" "$tool_dir/submodule-push.sh"
 cp "$template_root/scripts/submodule-accept-pointers.sh" "$tool_dir/submodule-accept-pointers.sh"
+cp "$template_root/scripts/submodule-state.sh" "$tool_dir/submodule-state.sh"
+cp "$template_root/cli/submodule-governance.mjs" "$tool_dir/cli/submodule-governance.mjs"
+cp "$template_root/cli/submodule-governance-mcp.mjs" "$tool_dir/cli/submodule-governance-mcp.mjs"
 cp "$template_root/scripts/submodule-sync.sh" "$tool_dir/submodule-sync.sh"
 cp "$template_root/scripts/pre-push-hook.sh" "$tool_dir/pre-push-hook.sh"
 cp "$template_root/scripts/install-hooks.sh" "$tool_dir/install-hooks.sh"
@@ -74,6 +78,9 @@ chmod +x \
   "$tool_dir/submodule-fix.sh" \
   "$tool_dir/submodule-push.sh" \
   "$tool_dir/submodule-accept-pointers.sh" \
+  "$tool_dir/submodule-state.sh" \
+  "$tool_dir/cli/submodule-governance.mjs" \
+  "$tool_dir/cli/submodule-governance-mcp.mjs" \
   "$tool_dir/submodule-sync.sh" \
   "$tool_dir/pre-push-hook.sh" \
   "$tool_dir/install-hooks.sh"
