@@ -16,13 +16,21 @@ const tools = [
   },
   {
     name: 'accept_current_pointers',
-    description: 'Create one main-repository commit accepting all current submodule pointers when allowed by policy. This modifies Git history.',
-    inputSchema: { type: 'object', properties: {} },
+    description: 'Create one main-repository commit accepting all current submodule pointers when allowed by policy. This modifies Git history and requires confirm=true.',
+    inputSchema: {
+      type: 'object',
+      properties: { confirm: { type: 'boolean', description: 'Must be true after user approval.' } },
+      required: ['confirm'],
+    },
   },
   {
     name: 'sync_recorded_pointers',
-    description: 'Checkout submodules to commits recorded by the main repository. This modifies submodule worktrees.',
-    inputSchema: { type: 'object', properties: {} },
+    description: 'Checkout submodules to commits recorded by the main repository. This modifies submodule worktrees and requires confirm=true.',
+    inputSchema: {
+      type: 'object',
+      properties: { confirm: { type: 'boolean', description: 'Must be true after user approval.' } },
+      required: ['confirm'],
+    },
   },
 ];
 
@@ -34,17 +42,19 @@ function textResult(value, isError = false) {
   return { content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }], isError };
 }
 
-function callTool(name) {
+function callTool(name, args = {}) {
   if (name === 'get_submodule_status') return textResult(getStatus());
   if (name === 'check_submodules') {
     const result = runCaptured('submodule-check.sh');
     return textResult(result.stdout + result.stderr, !result.ok);
   }
   if (name === 'accept_current_pointers') {
+    if (args.confirm !== true) return textResult('This operation creates a commit. Re-run with confirm=true after user approval.', true);
     const result = runCaptured('submodule-accept-pointers.sh');
     return textResult(result.stdout + result.stderr, !result.ok);
   }
   if (name === 'sync_recorded_pointers') {
+    if (args.confirm !== true) return textResult('This operation modifies submodule worktrees. Re-run with confirm=true after user approval.', true);
     const result = runCaptured('submodule-sync.sh');
     return textResult(result.stdout + result.stderr, !result.ok);
   }
@@ -66,7 +76,7 @@ lines.on('line', (line) => {
     } else if (request.method === 'tools/list') {
       respond(request.id, { tools });
     } else if (request.method === 'tools/call') {
-      respond(request.id, callTool(request.params?.name));
+      respond(request.id, callTool(request.params?.name, request.params?.arguments));
     } else if (request.id !== undefined) {
       respond(request.id, {});
     }

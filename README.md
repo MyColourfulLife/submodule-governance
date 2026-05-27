@@ -250,7 +250,7 @@ MCP tools：
 | `accept_current_pointers` | 是 | 按策略生成一条 pointer commit |
 | `sync_recorded_pointers` | 是 | 将子模块 checkout 到主仓库记录的 SHA |
 
-调用会修改仓库的工具前，Agent 应先向用户确认动作与影响。
+调用会修改仓库的工具前，Agent 应先向用户确认动作与影响；MCP server 也会拒绝未显式传入 `confirm: true` 的写操作。
 
 ## 关键防护场景
 
