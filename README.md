@@ -44,6 +44,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `.git/submodule-governance/submodule-check.sh`
 - `.git/submodule-governance/submodule-fix.sh`
 - `.git/submodule-governance/submodule-push.sh`
+- `.git/submodule-governance/submodule-accept-pointers.sh`
 - `.git/submodule-governance/submodule-sync.sh`
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
@@ -203,6 +204,18 @@ git config --file .submodule-governance.config governance.requirePushed false
 ```
 
 如果目标仓库已有自定义 `pre-push` hook，安装脚本不会直接覆盖它，而会提示将治理命令合并到现有 hook 中。
+
+## SourceTree 集成
+
+SourceTree 中的普通 Push 会执行只读 `pre-push` 检查，因此不会在 GUI 操作过程中突然修改代码或创建 commit。若检查阻止 push，可通过 `Preferences > Custom Actions` 添加下列常用动作，脚本路径选择当前仓库 `.git/submodule-governance/` 下的对应文件：
+
+| 动作名称 | 脚本 | 行为 |
+| --- | --- | --- |
+| `Submodule - Check` | `submodule-check.sh` | 只读检查当前状态 |
+| `Submodule - Accept Current Pointers` | `submodule-accept-pointers.sh` | 将全部当前子模块 SHA 汇总生成一条主仓库 commit，不执行 push |
+| `Submodule - Sync Recorded Pointers` | `submodule-sync.sh` | 将子模块同步到主仓库已记录的 SHA |
+
+`Accept Current Pointers` 不会自动处理分支配置不一致，也不会在严格模式下接受脏子模块或未推送的子模块 commit；遇到这些需要判断的情况，应从 SourceTree 打开 Terminal 并运行 `.git/submodule-governance/submodule-fix.sh` 或 `.git/submodule-governance/submodule-push.sh`。
 
 ## 关键防护场景
 
