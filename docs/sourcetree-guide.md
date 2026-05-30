@@ -1,6 +1,6 @@
 # SourceTree 使用教程
 
-本文面向使用 SourceTree 操作主仓库的开发者。设计原则是：SourceTree 的 Push 仍然安全地执行只读检查；明确、无需选择的处理可做成 Custom Action；需要判断风险时转到 Terminal 使用交互修复。
+本文面向使用 SourceTree 操作主仓库的开发者。设计原则是：SourceTree 的 Push 仍然安全地执行只读检查；明确、无需选择的处理可做成 Custom Action；需要判断风险时转到 Terminal 使用交互修复。为了让接入尽量接近 VS Code 的轻量体验，安装脚本会在仓库根目录额外生成一个 `.sourcetree/submodule-governance.sh` 分发脚本，供 SourceTree Custom Actions 直接调用。
 
 ## 1. 使用效果
 
@@ -23,6 +23,14 @@
 
 如果仓库已经使用 Husky，安装脚本会将治理入口连接到 `.husky/pre-push`；建议团队提交该 hook 文件和 `.submodule-governance.config`。重新 clone 后，每位成员仍需执行一次安装，以生成 `.git/submodule-governance/` 下的本地脚本。
 
+如果团队里有人长期使用 SourceTree，建议把下面这个仓库文件也纳入 Git 管理：
+
+```text
+.sourcetree/submodule-governance.sh
+```
+
+它只是一个轻量分发脚本，会把 `check`、`accept-pointers`、`sync` 等操作转发到本地 `.git/submodule-governance/` 中已安装的真实脚本。
+
 验证安装：
 
 ```bash
@@ -34,7 +42,7 @@ cd /path/to/main-repo
 
 Atlassian 当前 macOS 文档中的入口为 `SourceTree > Preferences > Custom Actions`。点击 `Add` 添加动作，并勾选显示命令输出的选项，便于查看阻断原因或生成的 commit。
 
-下面的设置使用 SourceTree 提供的 `$REPO` 参数，因此同一组动作可作用于所有已经安装治理脚本的仓库。
+下面的设置使用 SourceTree 提供的 `$REPO` 参数，并统一调用仓库根目录下的 `.sourcetree/submodule-governance.sh`，这样参数更短，也更容易团队统一。
 
 ### Action A：只读检查
 
@@ -42,7 +50,7 @@ Atlassian 当前 macOS 文档中的入口为 `SourceTree > Preferences > Custom 
 | --- | --- |
 | Menu Caption | `Submodule - Check` |
 | Script to run | `/bin/bash` |
-| Parameters | `-lc 'cd "$1" && exec "$(git rev-parse --git-dir)/submodule-governance/submodule-check.sh"' _ "$REPO"` |
+| Parameters | `"$REPO/.sourcetree/submodule-governance.sh" check` |
 
 用途：在 push 前主动检查，不修改仓库。
 
@@ -52,7 +60,7 @@ Atlassian 当前 macOS 文档中的入口为 `SourceTree > Preferences > Custom 
 | --- | --- |
 | Menu Caption | `Submodule - Accept Current Pointers` |
 | Script to run | `/bin/bash` |
-| Parameters | `-lc 'cd "$1" && exec "$(git rev-parse --git-dir)/submodule-governance/submodule-accept-pointers.sh"' _ "$REPO"` |
+| Parameters | `"$REPO/.sourcetree/submodule-governance.sh" accept-pointers` |
 
 用途：将当前所有满足策略的子模块 HEAD 记录到主仓库，并自动生成一条 conventional commit；不执行 push。该自动 commit 会使用 `--no-verify` 跳过业务仓库本地 commit hooks，避免 SourceTree 操作被项目 Node 依赖或 Husky 状态卡住。
 
@@ -62,7 +70,7 @@ Atlassian 当前 macOS 文档中的入口为 `SourceTree > Preferences > Custom 
 | --- | --- |
 | Menu Caption | `Submodule - Sync Recorded Pointers` |
 | Script to run | `/bin/bash` |
-| Parameters | `-lc 'cd "$1" && exec "$(git rev-parse --git-dir)/submodule-governance/submodule-sync.sh"' _ "$REPO"` |
+| Parameters | `"$REPO/.sourcetree/submodule-governance.sh" sync` |
 
 用途：将子模块 checkout 到当前主仓库已经记录的 SHA。该动作会改变子模块 checkout，请仅在确认不需要保留子模块当前状态后运行。
 
@@ -93,7 +101,7 @@ Atlassian 当前 macOS 文档中的入口为 `SourceTree > Preferences > Custom 
 
 ### 场景四：需要选择“更新指针还是恢复指针”
 
-SourceTree Action 刻意不提供风险选择菜单。请从该仓库打开 Terminal，然后执行：
+SourceTree Action 刻意不提供风险选择菜单。你可以从该仓库打开 Terminal，然后执行：
 
 ```bash
 .git/submodule-governance/submodule-fix.sh
@@ -104,6 +112,16 @@ SourceTree Action 刻意不提供风险选择菜单。请从该仓库打开 Term
 ```bash
 .git/submodule-governance/submodule-push.sh
 ```
+
+如果你确实希望把交互修复也挂到 SourceTree，可以额外加一个动作：
+
+| 设置项 | 值 |
+| --- | --- |
+| Menu Caption | `Submodule - Fix (Interactive)` |
+| Script to run | `/bin/bash` |
+| Parameters | `"$REPO/.sourcetree/submodule-governance.sh" fix` |
+
+是否稳定取决于 SourceTree 当前版本对交互式终端输入的支持，因此仍然更推荐在独立 Terminal 中执行 `fix`。
 
 ## 5. 哪些问题不能在 GUI 中自动解决
 
@@ -123,6 +141,7 @@ SourceTree Action 刻意不提供风险选择菜单。请从该仓库打开 Term
 - 使用 Husky 的项目，将调用治理脚本的 `.husky/pre-push` 纳入 Git 管理。
 - 在团队 onboarding 中加入一次 `bootstrap.sh /path/to/main-repo` 安装步骤。
 - 对 SourceTree 用户统一发放上述三个 Custom Actions 的配置值。
+- 如果团队希望进一步降低接入成本，可以把 `.sourcetree/submodule-governance.sh` 也纳入 Git 管理，这样 Custom Action 只需要保留很短的参数。
 - 不为 GUI 提供“忽略风险并强行 push”的一键动作；有风险的放行应在终端中明确确认。
 
 ## 7. 故障排查

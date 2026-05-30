@@ -87,6 +87,11 @@ chmod +x \
   "$tool_dir/install-hooks.sh" \
   "$tool_dir/uninstall.sh"
 
+sourcetree_dir="$target_repo/.sourcetree"
+mkdir -p "$sourcetree_dir"
+cp "$template_root/scripts/sourcetree-command.sh" "$sourcetree_dir/submodule-governance.sh"
+chmod +x "$sourcetree_dir/submodule-governance.sh"
+
 config_file="$target_repo/.submodule-governance.config"
 strict_value="false"
 if [[ "$strict_mode" == "1" ]]; then

@@ -133,7 +133,9 @@ sg_collect_state() {
   done
 
   while IFS= read -r staged; do
-    sg_has_submodule "$staged" && staged_pointer_paths+=("$staged")
+    if sg_has_submodule "$staged"; then
+      staged_pointer_paths+=("$staged")
+    fi
   done < <(git diff --cached --name-only --diff-filter=AM)
 }
 

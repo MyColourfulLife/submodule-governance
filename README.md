@@ -9,6 +9,7 @@
 | 使用方式 | 适合对象 | 教程 |
 | --- | --- | --- |
 | 命令行交互 | 使用 Terminal 完成检查、修复与推送的开发者 | [命令行使用教程](docs/command-line-guide.md) |
+| VS Code | 希望在编辑器里直接点击运行治理命令的开发者 | [VS Code 集成教程](docs/vscode-guide.md) |
 | SourceTree | 使用 GUI 推送，并通过 Custom Actions 处理明确操作的开发者 | [SourceTree 使用教程](docs/sourcetree-guide.md) |
 | 本地 MCP 服务 | 希望由 Agent 只读检查或在确认后执行受控修复的开发者 | [本地 MCP 服务接入教程](docs/local-mcp-guide.md) |
 
@@ -64,6 +65,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
 - `.git/submodule-governance/uninstall.sh`
+- `.sourcetree/submodule-governance.sh`（可选的 SourceTree Custom Action 入口，建议 SourceTree 团队纳入 Git 管理）
 - `.submodule-governance.config`（默认生成，建议由主仓库维护并纳入 Git 管理）
 - 当前生效的 `pre-push` hook（普通仓库为 `.git/hooks/pre-push`，Husky 仓库为 `.husky/pre-push`）
 
@@ -161,6 +163,82 @@ git config --file .submodule-governance.config submodule.ios.branch dev/v2.2.7/s
 
 安装完成后，目标仓库已经具备 push 前自动检查能力。
 
+## 常用流程
+
+推荐把日常使用理解成 5 个动作：安装、检查、修复、卸载、重新安装。
+
+### 1. 安装
+
+首次接入目标仓库时执行：
+
+```bash
+/path/to/submodule-governance-template/bootstrap.sh /path/to/target-repo
+```
+
+如果需要严格模式：
+
+```bash
+/path/to/submodule-governance-template/bootstrap.sh /path/to/target-repo --strict
+```
+
+### 2. 检查
+
+平时可以先手动执行一次只读检查：
+
+```bash
+cd /path/to/target-repo
+.git/submodule-governance/submodule-check.sh
+```
+
+非严格模式下，检查主要用于提醒；严格模式下，会在需要时阻止 push。
+
+### 3. 修复
+
+发现子模块指针、分支或同步状态异常时，执行交互修复：
+
+```bash
+.git/submodule-governance/submodule-fix.sh
+```
+
+如果只是子模块未初始化或目录缺失，先同步：
+
+```bash
+.git/submodule-governance/submodule-sync.sh
+```
+
+如果子模块指针已经 staged，例如执行过 `git reset --soft`，再次运行修复脚本时，脚本会直接把这些 staged pointer 纳入治理 commit。
+
+建议把 `check` 和 `fix` 作为主要入口。异常处理完后，`git push` 最好仍然手动执行，这样开发者能更清楚地确认本次真正要推送的内容，也更容易和项目本身的其他 hook、发布流程配合。
+
+### 4. 卸载
+
+不再需要治理脚本时执行：
+
+```bash
+/path/to/submodule-governance-template/uninstall.sh /path/to/target-repo
+```
+
+或在目标仓库内执行：
+
+```bash
+.git/submodule-governance/uninstall.sh
+```
+
+### 5. 重新安装
+
+以下情况建议重新安装：
+
+- 重新 clone 了仓库。
+- hook 被删除、替换，或 `core.hooksPath` 被改动。
+- 模板仓库升级后，需要把最新治理脚本重新部署到目标仓库。
+- 你手动卸载过治理脚本后，准备再次启用。
+
+重新安装命令与首次安装相同：
+
+```bash
+/path/to/submodule-governance-template/bootstrap.sh /path/to/target-repo
+```
+
 ## 从目标仓库卸载
 
 从模板仓库执行：
@@ -203,35 +281,13 @@ git config --file .submodule-governance.config governance.requirePushed false
 
 ## 目标仓库中的日常使用
 
-正常情况下，开发者可以正常执行 `git push`，`pre-push` hook 会只读运行检查。如果检查提示子模块指针或配置分支不一致，可在终端执行治理 push 命令：
+正常情况下，开发者仍然可以直接执行 `git push`，`pre-push` hook 会在 push 前只读检查一次当前状态。
 
-```bash
-.git/submodule-governance/submodule-push.sh
-```
+更推荐的使用节奏是：
 
-它会先提供修复菜单，完成修复并生成汇总 commit 后再执行 `git push`。
-
-普通 Git hook 安装在本地 Git 元数据中，切换业务分支不需要重新安装。使用 Husky 时，`.husky/pre-push` 属于仓库文件，建议将它随 `.submodule-governance.config` 一起纳入 Git 管理并合并到需要治理的分支；分支已经包含该 hook 后，也无需每次切换都重新安装。重新克隆仓库、删除/替换 hook、修改 `core.hooksPath`，或需要更新已安装的治理脚本版本时，应重新运行 `bootstrap.sh`。
-
-如果切分支、拉取代码后发现子模块未同步，或 hook 提示子模块未初始化/目录缺失，可以执行：
-
-```bash
-.git/submodule-governance/submodule-sync.sh
-```
-
-它会自动同步子模块 URL 和主仓库记录的子模块 commit。
-
-如果想在 push 前主动进行只读检查，可以手动执行：
-
-```bash
-.git/submodule-governance/submodule-check.sh
-```
-
-如果只想交互修复而暂不 push，可以执行：
-
-```bash
-.git/submodule-governance/submodule-fix.sh
-```
+1. 先运行 `.git/submodule-governance/submodule-check.sh`
+2. 有异常时运行 `.git/submodule-governance/submodule-fix.sh` 或 `.git/submodule-governance/submodule-sync.sh`
+3. 自己确认状态无误后，手动执行 `git push`
 
 如果 hook 丢失，可重新安装：
 
@@ -240,6 +296,8 @@ git config --file .submodule-governance.config governance.requirePushed false
 ```
 
 如果目标仓库已有自定义 `pre-push` hook，安装脚本不会直接覆盖它，而会提示将治理命令合并到现有 hook 中。
+
+普通 Git hook 安装在本地 Git 元数据中，切换业务分支不需要重新安装。使用 Husky 时，`.husky/pre-push` 属于仓库文件，建议将它随 `.submodule-governance.config` 一起纳入 Git 管理并合并到需要治理的分支；分支已经包含该 hook 后，也无需每次切换都重新安装。
 
 完整的终端安装、配置、菜单选择和问题处理步骤，请参阅 [命令行使用教程](docs/command-line-guide.md)。
 
@@ -253,7 +311,7 @@ SourceTree 中的普通 Push 会执行只读 `pre-push` 检查，因此不会在
 | `Submodule - Accept Current Pointers` | `submodule-accept-pointers.sh` | 将全部当前子模块 SHA 汇总生成一条主仓库 commit，不执行 push |
 | `Submodule - Sync Recorded Pointers` | `submodule-sync.sh` | 将子模块同步到主仓库已记录的 SHA |
 
-Custom Actions 的具体配置值、GUI 工作流和转入 Terminal 的判断标准，请参阅 [SourceTree 使用教程](docs/sourcetree-guide.md)。
+安装后，仓库根目录还会生成 `.sourcetree/submodule-governance.sh`，用于简化 SourceTree Custom Action 配置。Custom Actions 的具体配置值、GUI 工作流和转入 Terminal 的判断标准，请参阅 [SourceTree 使用教程](docs/sourcetree-guide.md)。
 
 ## CLI 与 Agent 接入
 
