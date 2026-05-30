@@ -71,6 +71,7 @@ cp "$template_root/cli/submodule-governance-mcp.mjs" "$tool_dir/cli/submodule-go
 cp "$template_root/scripts/submodule-sync.sh" "$tool_dir/submodule-sync.sh"
 cp "$template_root/scripts/pre-push-hook.sh" "$tool_dir/pre-push-hook.sh"
 cp "$template_root/scripts/install-hooks.sh" "$tool_dir/install-hooks.sh"
+cp "$template_root/scripts/uninstall.sh" "$tool_dir/uninstall.sh"
 
 chmod +x \
   "$tool_dir/submodule-check.sh" \
@@ -83,7 +84,8 @@ chmod +x \
   "$tool_dir/cli/submodule-governance-mcp.mjs" \
   "$tool_dir/submodule-sync.sh" \
   "$tool_dir/pre-push-hook.sh" \
-  "$tool_dir/install-hooks.sh"
+  "$tool_dir/install-hooks.sh" \
+  "$tool_dir/uninstall.sh"
 
 config_file="$target_repo/.submodule-governance.config"
 strict_value="false"

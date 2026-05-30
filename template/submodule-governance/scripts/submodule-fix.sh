@@ -24,6 +24,7 @@ update_pointer_old=()
 update_pointer_new=()
 restore_paths=()
 restore_shas=()
+commit_pointer_paths=()
 
 error() {
   echo "错误：$1"
@@ -32,7 +33,10 @@ error() {
 
 for message in "${config_errors[@]}"; do error "$message"; done
 for path in "${missing_paths[@]}"; do error "子模块 '$path' 目录缺失或未初始化。请先执行 submodule-sync.sh。"; done
-for path in "${staged_pointer_paths[@]}"; do error "子模块指针 '$path' 已暂存但尚未提交。请先处理暂存内容。"; done
+for path in "${staged_pointer_paths[@]}"; do
+  echo "提示：子模块指针 '$path' 已暂存，将直接纳入本次治理 commit。"
+  commit_pointer_paths+=("$path")
+done
 for path in "${dirty_paths[@]}"; do
   if [[ "$require_pushed" == "1" ]]; then
     error "子模块 '$path' 存在未提交改动。严格模式下不能自动修复。"
@@ -140,9 +144,15 @@ done
 
 if [[ ${#update_pointer_paths[@]} -gt 0 ]]; then
   git add "${update_pointer_paths[@]}"
+  for path in "${update_pointer_paths[@]}"; do
+    commit_pointer_paths+=("$path")
+  done
+fi
+
+if [[ ${#commit_pointer_paths[@]} -gt 0 ]]; then
   message="chore(submodule): update pointers"
-  [[ ${#update_pointer_paths[@]} -gt 1 ]] || message="chore(submodule): update ${update_pointer_paths[0]} pointer"
-  git commit -m "$message" -- "${update_pointer_paths[@]}"
+  [[ ${#commit_pointer_paths[@]} -gt 1 ]] || message="chore(submodule): update ${commit_pointer_paths[0]} pointer"
+  git commit --no-verify -m "$message" -- "${commit_pointer_paths[@]}"
   echo "已生成 commit：$(git rev-parse --short HEAD) $message"
   changed=1
 fi

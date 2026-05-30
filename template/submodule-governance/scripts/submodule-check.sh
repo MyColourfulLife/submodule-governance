@@ -29,10 +29,15 @@ warn() {
 }
 
 for message in "${config_errors[@]}"; do
-  error "$message"
+  warn "$message"
+  warn "无法可靠读取治理配置，本次按非严格模式仅提醒，不阻止 push。"
 done
 for path in "${missing_paths[@]}"; do
-  error "子模块 '$path' 目录缺失或未初始化。请执行：.git/submodule-governance/submodule-sync.sh"
+  if [[ "$require_pushed" == "1" ]]; then
+    error "子模块 '$path' 目录缺失或未初始化。请执行：.git/submodule-governance/submodule-sync.sh"
+  else
+    warn "子模块 '$path' 目录缺失或未初始化。建议执行：.git/submodule-governance/submodule-sync.sh"
+  fi
 done
 for path in "${dirty_paths[@]}"; do
   if [[ "$require_pushed" == "1" ]]; then
@@ -58,6 +63,8 @@ done
 for i in "${!branch_mismatch_paths[@]}"; do
   if [[ "$bypass_risks" == "1" ]]; then
     warn "'${branch_mismatch_paths[$i]}' 当前分支 '${branch_current_values[$i]}' 与配置分支 '${branch_expected_values[$i]}' 不一致；已确认本次继续。"
+  elif [[ "$require_pushed" != "1" ]]; then
+    warn "'${branch_mismatch_paths[$i]}' 当前分支 '${branch_current_values[$i]}' 与配置分支 '${branch_expected_values[$i]}' 不一致。"
   else
     error "'${branch_mismatch_paths[$i]}' 当前分支 '${branch_current_values[$i]}' 与配置分支 '${branch_expected_values[$i]}' 不一致。请执行：.git/submodule-governance/submodule-fix.sh"
   fi
@@ -65,12 +72,18 @@ done
 for i in "${!mismatch_paths[@]}"; do
   if [[ "$bypass_risks" == "1" ]]; then
     warn "子模块 '${mismatch_paths[$i]}' 当前 HEAD 与主仓库记录不一致；已确认本次继续。"
+  elif [[ "$require_pushed" != "1" ]]; then
+    warn "子模块 '${mismatch_paths[$i]}' 当前 HEAD (${mismatch_head_shas[$i]}) 与主仓库记录的 commit (${mismatch_indexed_shas[$i]}) 不一致。"
   else
     error "子模块 '${mismatch_paths[$i]}' 当前 HEAD (${mismatch_head_shas[$i]}) 与主仓库记录的 commit (${mismatch_indexed_shas[$i]}) 不一致。请执行：.git/submodule-governance/submodule-fix.sh"
   fi
 done
 for path in "${staged_pointer_paths[@]}"; do
-  error "子模块指针 '$path' 已暂存但尚未提交。请先提交主仓库。"
+  if [[ "$require_pushed" == "1" ]]; then
+    error "子模块指针 '$path' 已暂存但尚未提交。请先提交主仓库。"
+  else
+    warn "子模块指针 '$path' 已暂存但尚未提交；本次 push 不会包含未提交的暂存内容。"
+  fi
 done
 
 if [[ "$has_error" -ne 0 ]]; then

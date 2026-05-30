@@ -7,8 +7,8 @@
 完成安装后，在 SourceTree 中点击 Push 时，Git 会触发治理 `pre-push` hook：
 
 - 状态正常时，push 照常执行。
-- 有子模块本地未提交文件且处于非严格模式时，显示警告但不会仅因此中断 push。
-- 子模块指针、期望分支、严格模式要求或配置存在错误时，push 被阻止。
+- 非严格模式下，子模块本地未提交文件、指针不一致、分支不一致、未推送 upstream、已暂存指针等都会显示警告，但不会中断 push。
+- 严格模式要求会阻止 push；配置解析错误会按非严格模式只提醒不阻止 push。
 - 被阻止时，hook 不会自动 checkout、不创建 commit，也不会在 GUI 流程中要求输入菜单。
 
 因此 SourceTree 不会在一次 Push 操作中暗中更改主仓库历史。
@@ -54,7 +54,7 @@ Atlassian 当前 macOS 文档中的入口为 `SourceTree > Preferences > Custom 
 | Script to run | `/bin/bash` |
 | Parameters | `-lc 'cd "$1" && exec "$(git rev-parse --git-dir)/submodule-governance/submodule-accept-pointers.sh"' _ "$REPO"` |
 
-用途：将当前所有满足策略的子模块 HEAD 记录到主仓库，并自动生成一条 conventional commit；不执行 push。
+用途：将当前所有满足策略的子模块 HEAD 记录到主仓库，并自动生成一条 conventional commit；不执行 push。该自动 commit 会使用 `--no-verify` 跳过业务仓库本地 commit hooks，避免 SourceTree 操作被项目 Node 依赖或 Husky 状态卡住。
 
 ### Action C：同步到主仓库记录的指针
 
@@ -114,7 +114,7 @@ SourceTree Action 刻意不提供风险选择菜单。请从该仓库打开 Term
 | 配置期望分支与当前分支不一致 | 需要判断是否应切分支或承担风险 |
 | 严格模式下子模块有未提交内容 | 不能安全生成可发布指针 |
 | 严格模式下子模块 commit 未推送 upstream | 远端成员可能拉不到该 commit |
-| 子模块指针已经 staged 但未 commit | 避免覆盖开发者正在组织的提交 |
+| 子模块指针已经 staged 但未 commit | 严格模式下避免覆盖开发者正在组织的提交；非严格模式只提醒 |
 | 子模块未初始化或目录缺失 | 需要先同步/初始化 |
 
 ## 6. 团队部署建议

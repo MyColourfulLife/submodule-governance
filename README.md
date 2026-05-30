@@ -41,13 +41,13 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 
 ## 核心功能
 
-- `git push` 前只读自动检查：hook 只报告风险或阻止 push，不会在 push 过程中修改工作区或创建 commit。
+- `git push` 前只读自动检查：hook 只报告风险或按严格模式阻止 push，不会在 push 过程中修改工作区或创建 commit。
 - 终端交互修复与推送：`.git/submodule-governance/submodule-push.sh` 会处理全部子模块选择、汇总生成 commit 后执行 push。
-- 子模块未初始化或目录缺失时阻止 push，并提示执行 `.git/submodule-governance/submodule-sync.sh` 自动同步。
+- 子模块未初始化或目录缺失时，非严格模式仅提醒，严格模式阻止 push，并提示执行 `.git/submodule-governance/submodule-sync.sh` 自动同步。
 - 子模块有未提交改动时，非严格模式会警告这些内容不会包含在主仓库指针 commit 中；严格模式会阻止 push。
 - 子模块 HEAD 和主仓库记录的 gitlink commit 不一致时，hook 提示使用修复命令；终端修复命令提供中文菜单，可选择更新主仓库指针、恢复子模块、了解风险继续 push 或取消。
 - 如果 `.submodule-governance.config` 配置了期望分支，会先检查主仓库和子模块分支是否一致。
-- 主仓库已经 `git add <submodule>` 但还没 commit 时阻止 push。
+- 主仓库已经 `git add <submodule>` 但还没 commit 时，非严格模式仅提醒，严格模式阻止 push。
 - 子模块 commit 未推送到上游时，默认只警告；开启严格模式后会阻止 push。
 - 提供 `.git/submodule-governance/submodule-sync.sh`，用于一键执行 `git submodule sync --recursive` 和 `git submodule update --init --recursive`。
 
@@ -63,6 +63,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `.git/submodule-governance/submodule-sync.sh`
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
+- `.git/submodule-governance/uninstall.sh`
 - `.submodule-governance.config`（默认生成，建议由主仓库维护并纳入 Git 管理）
 - 当前生效的 `pre-push` hook（普通仓库为 `.git/hooks/pre-push`，Husky 仓库为 `.husky/pre-push`）
 
@@ -95,7 +96,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 
 含义：
 
-- `governance.requirePushed` 表示是否开启严格模式，`true` 会在子模块 HEAD 未推送到 upstream 或子模块存在未提交内容时阻止 push。
+- `governance.requirePushed` 表示是否开启严格模式；`false` 时子模块风险只提醒不阻止 push，`true` 时子模块 HEAD 未推送到 upstream、子模块存在未提交内容、指针不一致、分支不一致等风险会阻止 push。配置无法可靠读取时，`pre-push` 会按非严格模式处理，只输出提醒。
 - `governance.mainBranch` 表示主仓库期望分支；不配置时不检查主仓库分支。
 - `submodule "<path>".branch` 表示子模块期望分支，`<path>` 必须和 `.gitmodules` 中的路径一致。
 - 子模块默认 remote 为 `origin`。
@@ -159,6 +160,26 @@ git config --file .submodule-governance.config submodule.ios.branch dev/v2.2.7/s
 ```
 
 安装完成后，目标仓库已经具备 push 前自动检查能力。
+
+## 从目标仓库卸载
+
+从模板仓库执行：
+
+```bash
+/path/to/submodule-governance-template/uninstall.sh /path/to/target-repo
+```
+
+或在已经安装过的目标仓库中执行：
+
+```bash
+.git/submodule-governance/uninstall.sh
+```
+
+卸载会移除本地 `.git/submodule-governance/` 工具目录，并只自动删除模板生成的 `pre-push` hook；如果 hook 中混有用户自定义逻辑，脚本会保留 hook 并提示手动移除治理调用行。默认保留 `.submodule-governance.config`，如需一并删除：
+
+```bash
+/path/to/submodule-governance-template/uninstall.sh /path/to/target-repo --remove-config
+```
 
 ## 严格模式
 
@@ -247,7 +268,7 @@ node .git/submodule-governance/cli/submodule-governance-mcp.mjs
 
 ## 关键防护场景
 
-当子模块已经有新的 commit，但主仓库没有更新子模块指针时，普通 `git push` 的 hook 只会阻止并提示执行 `.git/submodule-governance/submodule-push.sh`。在终端执行该治理 push 命令后，会先汇总所有不一致的子模块，再逐个弹出修复菜单：
+当子模块已经有新的 commit，但主仓库没有更新子模块指针时，非严格模式下普通 `git push` 的 hook 只会提醒并继续；严格模式下会阻止并提示执行 `.git/submodule-governance/submodule-push.sh`。在终端执行该治理 push 命令后，会先汇总所有不一致的子模块，再逐个弹出修复菜单：
 
 ```text
 发现 2 个子模块与主仓库记录不一致：
@@ -267,7 +288,7 @@ node .git/submodule-governance/cli/submodule-governance-mcp.mjs
   [4] 取消
 ```
 
-选择 `[1]` 会记录需要更新的主仓库指针；脚本会继续处理其余不一致的子模块，全部选择完成后，再将所有选择更新的指针合并生成一个主仓库 commit。非严格模式下，子模块内部未提交内容会提示风险但不纳入指针 commit；严格模式或出现其他阻断问题时，脚本会在进入修复菜单前退出，不会留下部分修复 commit。
+选择 `[1]` 会记录需要更新的主仓库指针；脚本会继续处理其余不一致的子模块，全部选择完成后，再将所有选择更新的指针合并生成一个主仓库 commit。如果子模块指针已经暂存，例如执行过 `git reset --soft` 后再次运行治理脚本，脚本会把这些已暂存指针直接纳入本次治理 commit。治理脚本生成的 pointer commit 使用固定的 conventional commit message，并通过 `--no-verify` 跳过业务仓库本地 commit hooks，避免被项目 Node 依赖、格式检查或交互式 hook 状态卡住。非严格模式下，子模块内部未提交内容会提示风险但不纳入指针 commit；严格模式或出现其他阻断问题时，脚本会在进入修复菜单前退出，不会留下部分修复 commit。
 
 ```text
 已修复：主仓库子模块指针已更新并生成 commit（<commit_sha> chore(submodule): update pointers）。
@@ -286,4 +307,4 @@ node .git/submodule-governance/cli/submodule-governance-mcp.mjs
 
 也就是说，正确流程是：先在子模块仓库提交并推送代码，再回到主仓库提交子模块指针变化。这个模板会帮助开发者在忘记第二步时及时发现，并给出可选择的修复动作。
 
-如果脚本运行在非交互环境（例如 GUI、CI 或管道），只读检查不会弹菜单，会直接输出中文错误并阻止需要人工判断的 push。
+如果脚本运行在非交互环境（例如 GUI、CI 或管道），只读检查不会弹菜单；非严格模式只输出提醒并继续，严格模式会输出中文错误并阻止需要人工判断的 push。
