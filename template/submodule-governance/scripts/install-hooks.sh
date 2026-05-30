@@ -51,7 +51,9 @@ mkdir -p "$(dirname "$hook_file")"
 if [[ "$use_husky_wrapper" == "1" ]]; then
   cat >"$hook_file" <<'EOF'
 #!/usr/bin/env sh
-"$(git rev-parse --git-dir)/submodule-governance/pre-push-hook.sh" "$@"
+hook="$(git rev-parse --git-dir)/submodule-governance/pre-push-hook.sh"
+[ -x "$hook" ] || exit 0
+"$hook" "$@"
 EOF
 else
   cp "$script_dir/pre-push-hook.sh" "$hook_file"
