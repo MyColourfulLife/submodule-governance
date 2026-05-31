@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  .sourcetree/submodule-governance.sh <check|accept-pointers|sync|fix|push|reinstall-hooks>
+  sourcetree-command.sh <check|accept-pointers|sync|fix|push|reinstall-hooks>
 EOF
 }
 

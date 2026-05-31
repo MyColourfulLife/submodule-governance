@@ -65,7 +65,7 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - `.git/submodule-governance/pre-push-hook.sh`
 - `.git/submodule-governance/install-hooks.sh`
 - `.git/submodule-governance/uninstall.sh`
-- `.sourcetree/submodule-governance.sh`（可选的 SourceTree Custom Action 入口，建议 SourceTree 团队纳入 Git 管理）
+- `.git/submodule-governance/sourcetree-command.sh`（可选的 SourceTree Custom Action 入口，本地安装产物）
 - `.submodule-governance.config`（默认生成，建议由主仓库维护并纳入 Git 管理）
 - 当前生效的 `pre-push` hook（普通仓库为 `.git/hooks/pre-push`，Husky 仓库为 `.husky/pre-push`）
 
@@ -311,7 +311,7 @@ SourceTree 中的普通 Push 会执行只读 `pre-push` 检查，因此不会在
 | `Submodule - Accept Current Pointers` | `submodule-accept-pointers.sh` | 将全部当前子模块 SHA 汇总生成一条主仓库 commit，不执行 push |
 | `Submodule - Sync Recorded Pointers` | `submodule-sync.sh` | 将子模块同步到主仓库已记录的 SHA |
 
-安装后，仓库根目录还会生成 `.sourcetree/submodule-governance.sh`，用于简化 SourceTree Custom Action 配置。Custom Actions 的具体配置值、GUI 工作流和转入 Terminal 的判断标准，请参阅 [SourceTree 使用教程](docs/sourcetree-guide.md)。
+安装后，本地 `.git/submodule-governance/` 下还会包含 `sourcetree-command.sh`，用于简化 SourceTree Custom Action 配置。Custom Actions 的具体配置值、GUI 工作流和转入 Terminal 的判断标准，请参阅 [SourceTree 使用教程](docs/sourcetree-guide.md)。
 
 ## CLI 与 Agent 接入
 

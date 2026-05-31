@@ -72,6 +72,7 @@ cp "$template_root/scripts/submodule-sync.sh" "$tool_dir/submodule-sync.sh"
 cp "$template_root/scripts/pre-push-hook.sh" "$tool_dir/pre-push-hook.sh"
 cp "$template_root/scripts/install-hooks.sh" "$tool_dir/install-hooks.sh"
 cp "$template_root/scripts/uninstall.sh" "$tool_dir/uninstall.sh"
+cp "$template_root/scripts/sourcetree-command.sh" "$tool_dir/sourcetree-command.sh"
 
 chmod +x \
   "$tool_dir/submodule-check.sh" \
@@ -85,12 +86,8 @@ chmod +x \
   "$tool_dir/submodule-sync.sh" \
   "$tool_dir/pre-push-hook.sh" \
   "$tool_dir/install-hooks.sh" \
-  "$tool_dir/uninstall.sh"
-
-sourcetree_dir="$target_repo/.sourcetree"
-mkdir -p "$sourcetree_dir"
-cp "$template_root/scripts/sourcetree-command.sh" "$sourcetree_dir/submodule-governance.sh"
-chmod +x "$sourcetree_dir/submodule-governance.sh"
+  "$tool_dir/uninstall.sh" \
+  "$tool_dir/sourcetree-command.sh"
 
 config_file="$target_repo/.submodule-governance.config"
 strict_value="false"
