@@ -9,11 +9,12 @@
 | 使用方式 | 适合对象 | 教程 |
 | --- | --- | --- |
 | 命令行交互 | 使用 Terminal 完成检查、修复与推送的开发者 | [命令行使用教程](docs/command-line-guide.md) |
+| CLI | 希望通过稳定命令或 JSON 状态接入脚本、CI、自动化的开发者 | [CLI 使用教程](docs/cli-guide.md) |
 | VS Code | 希望在编辑器里直接点击运行治理命令的开发者 | [VS Code 集成教程](docs/vscode-guide.md) |
 | SourceTree | 使用 GUI 推送，并通过 Custom Actions 处理明确操作的开发者 | [SourceTree 使用教程](docs/sourcetree-guide.md) |
-| 本地 MCP 服务 | 希望由 Agent 只读检查或在确认后执行受控修复的开发者 | [本地 MCP 服务接入教程](docs/local-mcp-guide.md) |
+| Agent MCP | 希望由 Agent 只读检查或在确认后执行受控修复的开发者 | [Agent MCP 接入教程](docs/agent-mcp-guide.md) |
 
-三种入口复用同一套治理规则：hook 始终只读；产生 commit、切换子模块 checkout 或调用 Agent 写工具的操作都需要明确触发。
+这些入口复用同一套治理规则：hook 始终只读；产生 commit、切换子模块 checkout 或调用 Agent 写工具的操作都需要明确触发。
 
 ## 项目背景
 
@@ -343,7 +344,7 @@ node .git/submodule-governance/cli/submodule-governance.mjs status --json
 node .git/submodule-governance/cli/submodule-governance-mcp.mjs
 ```
 
-启动 MCP server 时，应将进程工作目录设置为需要治理的主仓库根目录；server 会拒绝未显式传入 `confirm: true` 的写操作。完整的 stdio MCP 配置示例、工具说明和 Agent 安全流程，请参阅 [本地 MCP 服务接入教程](docs/local-mcp-guide.md)。
+CLI 面向脚本、CI 和自动化，完整命令与 JSON 字段请参阅 [CLI 使用教程](docs/cli-guide.md)。启动 MCP server 时，应将进程工作目录设置为需要治理的主仓库根目录；server 会拒绝未显式传入 `confirm: true` 的写操作。完整的 stdio MCP 配置示例、工具说明和 Agent 安全流程，请参阅 [Agent MCP 接入教程](docs/agent-mcp-guide.md)。
 
 ## 关键防护场景
 
