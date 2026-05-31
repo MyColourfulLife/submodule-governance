@@ -52,6 +52,27 @@ Git Submodule 的本质是：主仓库记录的是子模块的某个具体 commi
 - 子模块 commit 未推送到上游时，默认只警告；开启严格模式后会阻止 push。
 - 提供 `.git/submodule-governance/submodule-sync.sh`，用于一键执行 `git submodule sync --recursive` 和 `git submodule update --init --recursive`。
 
+## 输出颜色
+
+治理脚本在支持颜色的终端中会按语义区分输出：
+
+- 红色：重大错误或失败处理，例如严格模式阻断、无法继续修复。
+- 黄色：警告信息，例如非严格模式下的子模块 dirty、指针不一致、未推送 upstream。
+- 绿色：成功信息，例如检查通过、修复完成、安装或卸载完成。
+- 默认颜色：普通说明、菜单、路径和操作提示。
+
+如果需要关闭颜色，可以在命令前设置 `NO_COLOR=1`：
+
+```bash
+NO_COLOR=1 .git/submodule-governance/submodule-check.sh
+```
+
+如果输出环境不是标准终端但支持 ANSI 颜色，可以显式开启：
+
+```bash
+SUBMODULE_GOVERNANCE_COLOR=always .git/submodule-governance/submodule-check.sh
+```
+
 ## 模板会安装哪些文件
 
 - `.git/submodule-governance/submodule-check.sh`

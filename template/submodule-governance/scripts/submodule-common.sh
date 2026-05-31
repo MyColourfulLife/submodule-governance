@@ -1,6 +1,45 @@
 #!/usr/bin/env bash
 
+sg_setup_colors() {
+  sg_red=""
+  sg_yellow=""
+  sg_green=""
+  sg_reset=""
+  if [[ "${NO_COLOR:-}" != "" || "${SUBMODULE_GOVERNANCE_COLOR:-auto}" == "never" ]]; then
+    return
+  fi
+  if [[ "${SUBMODULE_GOVERNANCE_COLOR:-auto}" == "always" || -t 1 ]]; then
+    sg_red="$(printf '\033[31m')"
+    sg_yellow="$(printf '\033[33m')"
+    sg_green="$(printf '\033[32m')"
+    sg_reset="$(printf '\033[0m')"
+  fi
+}
+
+sg_print() {
+  local color="$1"
+  shift
+  printf '%b%s%b\n' "$color" "$*" "$sg_reset"
+}
+
+sg_error() {
+  sg_print "$sg_red" "错误：$*"
+}
+
+sg_warn() {
+  sg_print "$sg_yellow" "警告：$*"
+}
+
+sg_success() {
+  sg_print "$sg_green" "$*"
+}
+
+sg_info() {
+  printf '%s\n' "$*"
+}
+
 sg_init() {
+  sg_setup_colors
   repo_root="$(git rev-parse --show-toplevel)"
   cd "$repo_root"
   config_file=".submodule-governance.config"

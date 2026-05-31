@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "$script_dir/submodule-common.sh"
+sg_setup_colors
+
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
-script_dir="$(cd "$(dirname "$0")" && pwd)"
 git_dir="$(git rev-parse --git-dir)"
 case "$git_dir" in
   /*) ;;
@@ -29,7 +33,7 @@ fi
 
 if [[ -f "$hook_file" ]]; then
   if grep -q 'submodule-governance/pre-push-hook.sh' "$hook_file"; then
-    echo "Existing pre-push hook already invokes submodule governance: $hook_file"
+    sg_info "Existing pre-push hook already invokes submodule governance: $hook_file"
     exit 0
   fi
 
@@ -37,13 +41,13 @@ if [[ -f "$hook_file" ]]; then
      cmp -s "$script_dir/pre-push-hook.sh" "$hook_file"; then
     cp "$script_dir/pre-push-hook.sh" "$hook_file"
     chmod +x "$hook_file"
-    echo "Updated pre-push hook at $hook_file"
+    sg_success "Updated pre-push hook at $hook_file"
     exit 0
   fi
 
-  echo "Existing pre-push hook was not overwritten: $hook_file"
-  echo "Add this command to that hook, then run installation again:"
-  echo '  "$(git rev-parse --git-dir)/submodule-governance/pre-push-hook.sh" "$@"'
+  sg_warn "Existing pre-push hook was not overwritten: $hook_file"
+  sg_info "Add this command to that hook, then run installation again:"
+  sg_info '  "$(git rev-parse --git-dir)/submodule-governance/pre-push-hook.sh" "$@"'
   exit 1
 fi
 
@@ -60,4 +64,4 @@ else
 fi
 chmod +x "$hook_file"
 
-echo "Installed pre-push hook to $hook_file"
+sg_success "Installed pre-push hook to $hook_file"

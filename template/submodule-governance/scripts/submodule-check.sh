@@ -8,11 +8,11 @@ source "$script_dir/submodule-common.sh"
 
 sg_init
 if [[ ! -f .gitmodules ]]; then
-  echo "未发现 .gitmodules，跳过子模块检查。"
+  sg_info "未发现 .gitmodules，跳过子模块检查。"
   exit 0
 fi
 if [[ ${#submodule_paths[@]} -eq 0 ]]; then
-  echo ".gitmodules 中未定义子模块路径。"
+  sg_info ".gitmodules 中未定义子模块路径。"
   exit 0
 fi
 
@@ -20,12 +20,12 @@ bypass_risks="${SUBMODULE_GOVERNANCE_BYPASS:-0}"
 has_error=0
 
 error() {
-  echo "错误：$1"
+  sg_error "$1"
   has_error=1
 }
 
 warn() {
-  echo "警告：$1"
+  sg_warn "$1"
 }
 
 for message in "${config_errors[@]}"; do
@@ -87,11 +87,11 @@ for path in "${staged_pointer_paths[@]}"; do
 done
 
 if [[ "$has_error" -ne 0 ]]; then
-  echo "子模块检查未通过，已阻止 push。"
+  sg_error "子模块检查未通过，已阻止 push。"
   exit 1
 fi
 if [[ "$require_pushed" == "1" ]]; then
-  echo "子模块检查通过（严格模式）。"
+  sg_success "子模块检查通过（严格模式）。"
 else
-  echo "子模块检查通过（非严格模式）。"
+  sg_success "子模块检查通过（非严格模式）。"
 fi

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "$script_dir/submodule-common.sh"
+sg_setup_colors
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -20,7 +25,7 @@ esac
 tool_dir="$git_dir/submodule-governance"
 
 if [[ ! -d "$tool_dir" ]]; then
-  echo "未检测到本地治理脚本，请先在当前仓库执行 bootstrap.sh 安装。"
+  sg_error "未检测到本地治理脚本，请先在当前仓库执行 bootstrap.sh 安装。"
   exit 1
 fi
 
@@ -47,7 +52,7 @@ case "${1:-}" in
     usage
     ;;
   *)
-    echo "Unknown command: $1"
+    sg_error "Unknown command: $1"
     usage
     exit 1
     ;;

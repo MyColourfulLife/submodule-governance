@@ -8,6 +8,10 @@ case "$git_dir" in
   *) git_dir="$repo_root/$git_dir" ;;
 esac
 
+# shellcheck disable=SC1091
+source "$git_dir/submodule-governance/submodule-common.sh"
+sg_setup_colors
+
 set +e
 "$git_dir/submodule-governance/submodule-fix.sh"
 fix_exit=$?
@@ -18,7 +22,7 @@ case "$fix_exit" in
     git push "$@"
     ;;
   10)
-    echo "本次 push 将带着已确认的分支或指针风险继续。"
+    sg_warn "本次 push 将带着已确认的分支或指针风险继续。"
     SUBMODULE_GOVERNANCE_BYPASS=1 git push "$@"
     ;;
   *)

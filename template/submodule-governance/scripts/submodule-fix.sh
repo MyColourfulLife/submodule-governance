@@ -8,11 +8,11 @@ source "$script_dir/submodule-common.sh"
 
 sg_init
 if [[ ! -f .gitmodules || ${#submodule_paths[@]} -eq 0 ]]; then
-  echo "没有需要治理的子模块。"
+  sg_info "没有需要治理的子模块。"
   exit 0
 fi
 if ! sg_is_interactive; then
-  echo "错误：交互修复需要在终端中执行。"
+  sg_error "交互修复需要在终端中执行。"
   exit 1
 fi
 
@@ -27,31 +27,31 @@ restore_shas=()
 commit_pointer_paths=()
 
 error() {
-  echo "错误：$1"
+  sg_error "$1"
   has_error=1
 }
 
 for message in "${config_errors[@]}"; do error "$message"; done
 for path in "${missing_paths[@]}"; do error "子模块 '$path' 目录缺失或未初始化。请先执行 submodule-sync.sh。"; done
 for path in "${staged_pointer_paths[@]}"; do
-  echo "提示：子模块指针 '$path' 已暂存，将直接纳入本次治理 commit。"
+  sg_info "提示：子模块指针 '$path' 已暂存，将直接纳入本次治理 commit。"
   commit_pointer_paths+=("$path")
 done
 for path in "${dirty_paths[@]}"; do
   if [[ "$require_pushed" == "1" ]]; then
     error "子模块 '$path' 存在未提交改动。严格模式下不能自动修复。"
   else
-    echo "警告：子模块 '$path' 存在未提交改动；这些内容不会包含在主仓库指针 commit 中。"
+    sg_warn "子模块 '$path' 存在未提交改动；这些内容不会包含在主仓库指针 commit 中。"
   fi
 done
 for path in "${no_upstream_paths[@]}"; do
-  [[ "$require_pushed" == "1" ]] && error "子模块 '$path' 未配置 upstream 分支。" || echo "警告：子模块 '$path' 未配置 upstream 分支。"
+  [[ "$require_pushed" == "1" ]] && error "子模块 '$path' 未配置 upstream 分支。" || sg_warn "子模块 '$path' 未配置 upstream 分支。"
 done
 for path in "${unpushed_paths[@]}"; do
-  [[ "$require_pushed" == "1" ]] && error "子模块 '$path' 当前 HEAD 尚未推送到 upstream。" || echo "警告：子模块 '$path' 当前 HEAD 尚未推送到 upstream。"
+  [[ "$require_pushed" == "1" ]] && error "子模块 '$path' 当前 HEAD 尚未推送到 upstream。" || sg_warn "子模块 '$path' 当前 HEAD 尚未推送到 upstream。"
 done
 if [[ "$has_error" -ne 0 ]]; then
-  echo "存在需要先手动处理的问题，未执行修复。"
+  sg_error "存在需要先手动处理的问题，未执行修复。"
   exit 1
 fi
 
@@ -86,7 +86,7 @@ if [[ ${#branch_mismatch_paths[@]} -gt 0 ]]; then
           git -C "$path" pull --ff-only origin "$branch"
         done
         if [[ "$has_error" -eq 0 ]]; then
-          echo "分支已根据配置处理完成，重新检查子模块状态。"
+          sg_success "分支已根据配置处理完成，重新检查子模块状态。"
           exec "$0"
         fi
       fi
@@ -138,7 +138,7 @@ fi
 
 for i in "${!restore_paths[@]}"; do
   git -C "${restore_paths[$i]}" checkout "${restore_shas[$i]}"
-  echo "已恢复：'${restore_paths[$i]}' 已 checkout 到 ${restore_shas[$i]}。"
+  sg_success "已恢复：'${restore_paths[$i]}' 已 checkout 到 ${restore_shas[$i]}。"
   changed=1
 done
 
@@ -153,9 +153,9 @@ if [[ ${#commit_pointer_paths[@]} -gt 0 ]]; then
   message="chore(submodule): update pointers"
   [[ ${#commit_pointer_paths[@]} -gt 1 ]] || message="chore(submodule): update ${commit_pointer_paths[0]} pointer"
   git commit --no-verify -m "$message" -- "${commit_pointer_paths[@]}"
-  echo "已生成 commit：$(git rev-parse --short HEAD) $message"
+  sg_success "已生成 commit：$(git rev-parse --short HEAD) $message"
   changed=1
 fi
 
-[[ "$changed" -ne 0 ]] && echo "子模块修复完成。" || echo "未修改工作区。"
+[[ "$changed" -ne 0 ]] && sg_success "子模块修复完成。" || sg_info "未修改工作区。"
 [[ "$risk_acknowledged" -eq 0 ]] || exit 10

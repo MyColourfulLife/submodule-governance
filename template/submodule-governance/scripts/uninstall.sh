@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+if [[ -f "$script_dir/submodule-common.sh" ]]; then
+  # shellcheck disable=SC1091
+  source "$script_dir/submodule-common.sh"
+  sg_setup_colors
+else
+  sg_error() { echo "错误：$*"; }
+  sg_warn() { echo "警告：$*"; }
+  sg_success() { echo "$*"; }
+  sg_info() { echo "$*"; }
+fi
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -31,7 +43,7 @@ for arg in "$@"; do
       if [[ -z "$target_repo" ]]; then
         target_repo="$arg"
       else
-        echo "Unexpected argument: $arg"
+        sg_error "Unexpected argument: $arg"
         usage
         exit 1
       fi
@@ -45,7 +57,7 @@ fi
 
 target_repo="$(cd "$target_repo" && pwd)"
 if ! git -C "$target_repo" rev-parse --show-toplevel >/dev/null 2>&1; then
-  echo "Target is not a git repository: $target_repo"
+  sg_error "Target is not a git repository: $target_repo"
   exit 1
 fi
 
@@ -79,43 +91,43 @@ if [[ -f "$hook_file" ]]; then
   if [[ -f "$template_hook" ]] && cmp -s "$template_hook" "$hook_file"; then
     rm -f "$hook_file"
     removed_hook="1"
-    echo "Removed generated pre-push hook: $hook_file"
+    sg_success "Removed generated pre-push hook: $hook_file"
   elif grep -q 'submodule-governance/pre-push-hook.sh' "$hook_file"; then
     hook_lines="$(sed '/^[[:space:]]*$/d' "$hook_file" | wc -l | tr -d ' ')"
     governance_lines="$(grep -c 'submodule-governance/pre-push-hook.sh' "$hook_file" || true)"
     if [[ "$hook_lines" -le 2 && "$governance_lines" -eq 1 ]]; then
       rm -f "$hook_file"
       removed_hook="1"
-      echo "Removed generated pre-push hook: $hook_file"
+      sg_success "Removed generated pre-push hook: $hook_file"
     else
-      echo "Existing pre-push hook contains submodule governance but was not removed: $hook_file"
-      echo "Remove this line manually if you want to keep the rest of the hook:"
-      echo '  "$(git rev-parse --git-dir)/submodule-governance/pre-push-hook.sh" "$@"'
+      sg_warn "Existing pre-push hook contains submodule governance but was not removed: $hook_file"
+      sg_info "Remove this line manually if you want to keep the rest of the hook:"
+      sg_info '  "$(git rev-parse --git-dir)/submodule-governance/pre-push-hook.sh" "$@"'
     fi
   fi
 fi
 
 if [[ -d "$tool_dir" ]]; then
   rm -rf "$tool_dir"
-  echo "Removed tool directory: $tool_dir"
+  sg_success "Removed tool directory: $tool_dir"
 else
-  echo "Tool directory not found: $tool_dir"
+  sg_info "Tool directory not found: $tool_dir"
 fi
 
 config_file="$repo_root/.submodule-governance.config"
 if [[ "$remove_config" == "1" ]]; then
   if [[ -f "$config_file" ]]; then
     rm -f "$config_file"
-    echo "Removed config file: $config_file"
+    sg_success "Removed config file: $config_file"
   else
-    echo "Config file not found: $config_file"
+    sg_info "Config file not found: $config_file"
   fi
 else
-  echo "Kept config file: $config_file"
+  sg_info "Kept config file: $config_file"
 fi
 
 if [[ "$removed_hook" == "0" ]]; then
-  echo "No generated pre-push hook was removed."
+  sg_info "No generated pre-push hook was removed."
 fi
 
-echo "Uninstall complete."
+sg_success "Uninstall complete."
