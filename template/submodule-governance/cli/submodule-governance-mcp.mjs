@@ -45,17 +45,17 @@ function textResult(value, isError = false) {
 function callTool(name, args = {}) {
   if (name === 'get_submodule_status') return textResult(getStatus());
   if (name === 'check_submodules') {
-    const result = runCaptured('submodule-check.sh');
+    const result = runCaptured('check');
     return textResult(result.stdout + result.stderr, !result.ok);
   }
   if (name === 'accept_current_pointers') {
     if (args.confirm !== true) return textResult('This operation creates a commit. Re-run with confirm=true after user approval.', true);
-    const result = runCaptured('submodule-accept-pointers.sh');
+    const result = runCaptured('accept-pointers');
     return textResult(result.stdout + result.stderr, !result.ok);
   }
   if (name === 'sync_recorded_pointers') {
     if (args.confirm !== true) return textResult('This operation modifies submodule worktrees. Re-run with confirm=true after user approval.', true);
-    const result = runCaptured('submodule-sync.sh');
+    const result = runCaptured('sync');
     return textResult(result.stdout + result.stderr, !result.ok);
   }
   return textResult(`Unknown tool: ${name}`, true);
