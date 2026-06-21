@@ -1,14 +1,14 @@
-# Agent MCP 接入教程
+# Agent MCP Integration Guide
 
-MCP server 是治理 CLI 的薄适配层，适合让 Agent 只读检查子模块状态，或在用户确认后执行受控写操作。首发版统一使用 Node.js 18+。
+The MCP server is a thin adapter over the governance CLI. It is intended for agents that need read-only submodule status checks or controlled write operations after user confirmation. The first release uses Node.js 18+.
 
-## 安装
+## Installation
 
 ```bash
 node /path/to/submodule-governance-template/bootstrap.mjs /path/to/main-repo
 ```
 
-确认本地 CLI 和 MCP server 可用：
+Confirm that the local CLI and MCP server are available:
 
 ```bash
 cd /path/to/main-repo
@@ -16,11 +16,11 @@ node .submodule-governance/cli/submodule-governance.mjs status --json
 node .submodule-governance/cli/submodule-governance-mcp.mjs
 ```
 
-第二条命令会等待 stdio JSON-RPC 输入；能正常启动即可用 `Ctrl+C` 退出。
+The second command waits for stdio JSON-RPC input. If it starts normally, exit with `Ctrl+C`.
 
-## MCP 客户端配置
+## MCP Client Configuration
 
-在支持 stdio MCP 的 Agent 客户端中配置：
+Configure a stdio MCP-compatible agent client:
 
 ```json
 {
@@ -36,48 +36,48 @@ node .submodule-governance/cli/submodule-governance-mcp.mjs
 }
 ```
 
-要求：
+Requirements:
 
-- `args` 指向目标主仓库安装出的 MCP server。
-- `cwd` 必须是同一个目标主仓库根目录。
-- 多个 worktree 或多个主仓库分别配置独立 server 名称。
+- `args` points to the MCP server installed in the target parent repository.
+- `cwd` must be the same target parent repository root.
+- Multiple worktrees or parent repositories should use separate server names.
 
 ## Tools
 
-| Tool | 是否修改 | 用途 |
+| Tool | Modifies state | Purpose |
 | --- | --- | --- |
-| `get_submodule_status` | 否 | 返回与 `status --json` 一致的结构化状态 |
-| `check_submodules` | 否 | 执行只读检查 |
-| `accept_current_pointers` | 是 | 在允许时接受当前子模块指针并创建主仓库 commit |
-| `sync_recorded_pointers` | 是 | 将子模块 checkout 到主仓库记录的 commit |
+| `get_submodule_status` | No | Returns the same structured status as `status --json` |
+| `check_submodules` | No | Runs read-only checks |
+| `accept_current_pointers` | Yes | Accepts current submodule pointers and creates a parent repository commit when allowed |
+| `sync_recorded_pointers` | Yes | Checks submodules out to the commits recorded by the parent repository |
 
-写工具必须传入 `confirm: true`。没有确认时 server 会拒绝执行。
+Write tools must receive `confirm: true`. The server rejects write calls without confirmation.
 
-## 推荐 Agent 流程
+## Recommended Agent Flow
 
-只读诊断：
+Read-only diagnosis:
 
-1. 调用 `get_submodule_status`。
-2. 调用 `check_submodules`。
-3. 向用户解释 dirty、unpushed、mismatch、branch mismatch 等风险。
+1. Call `get_submodule_status`.
+2. Call `check_submodules`.
+3. Explain dirty, unpushed, mismatch, and branch mismatch risks to the user.
 
-接受当前子模块版本：
+Accept the current submodule versions:
 
-1. 调用 `get_submodule_status` 展示将被接受的指针。
-2. 获得用户明确确认。
-3. 调用 `accept_current_pointers`，参数包含 `{ "confirm": true }`。
-4. 再次调用 `check_submodules` 复查。
+1. Call `get_submodule_status` and show the pointers that will be accepted.
+2. Obtain explicit user confirmation.
+3. Call `accept_current_pointers` with `{ "confirm": true }`.
+4. Call `check_submodules` again.
 
-恢复到主仓库记录版本：
+Restore the versions recorded by the parent repository:
 
-1. 调用 `get_submodule_status` 确认 mismatch。
-2. 获得用户明确确认。
-3. 调用 `sync_recorded_pointers`，参数包含 `{ "confirm": true }`。
-4. 再次调用 `check_submodules` 复查。
+1. Call `get_submodule_status` and confirm the mismatch.
+2. Obtain explicit user confirmation.
+3. Call `sync_recorded_pointers` with `{ "confirm": true }`.
+4. Call `check_submodules` again.
 
-## 安全边界
+## Safety Boundaries
 
-- MCP 不暴露自动 push。
-- MCP 不暴露交互式 `fix`；需要逐项选择时，让用户在终端运行 CLI。
-- 严格模式下，未推送子模块 commit、dirty 子模块、分支不一致等仍会阻止写工具。
-- MCP 只操作启动 `cwd` 所属仓库；配置路径必须使用绝对路径并清晰命名。
+- MCP does not expose automatic push.
+- MCP does not expose interactive `fix`; ask the user to run the CLI in a terminal when item-by-item choices are required.
+- In strict mode, unpushed submodule commits, dirty submodules, branch mismatches, and similar risks still block write tools.
+- MCP only operates on the repository used as its startup `cwd`; use absolute paths and clear names in client configuration.

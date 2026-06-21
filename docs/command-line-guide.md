@@ -1,108 +1,108 @@
-# 命令行使用教程
+# Command-line Guide
 
-本文面向直接在终端、脚本或 CI 中使用子模块治理能力的开发者。首发版统一使用 Node.js 18+，macOS 和 Windows 命令一致。
+This guide is for developers who use submodule governance from a terminal, script, or CI job. The first release uses Node.js 18+, and the commands are the same on macOS and Windows.
 
-## 安装
+## Installation
 
 ```bash
 node /path/to/submodule-governance-template/bootstrap.mjs /path/to/main-repo
 ```
 
-开启严格模式：
+Enable strict mode:
 
 ```bash
 node /path/to/submodule-governance-template/bootstrap.mjs /path/to/main-repo --strict
 ```
 
-安装完成后进入目标主仓库：
+After installation, enter the target parent repository:
 
 ```bash
 cd /path/to/main-repo
 node .submodule-governance/cli/submodule-governance.mjs check
 ```
 
-## 日常流程
+## Daily Workflow
 
-推送前主动检查：
+Run an explicit check before push:
 
 ```bash
 node .submodule-governance/cli/submodule-governance.mjs check
 ```
 
-需要交互处理时：
+Run the interactive repair flow when action is required:
 
 ```bash
 node .submodule-governance/cli/submodule-governance.mjs fix
 ```
 
-希望修复完成后继续 push：
+Repair first, then continue with push:
 
 ```bash
 node .submodule-governance/cli/submodule-governance.mjs push
 ```
 
-切换主仓库分支后，将子模块恢复到主仓库记录的 commit：
+After switching the parent repository branch, restore submodules to the commits recorded by the parent repository:
 
 ```bash
 node .submodule-governance/cli/submodule-governance.mjs sync
 ```
 
-确认当前子模块 HEAD 就是要发布的版本，并生成主仓库指针 commit：
+Accept the current submodule HEADs as the versions to release, and create a parent repository pointer commit:
 
 ```bash
 node .submodule-governance/cli/submodule-governance.mjs accept-pointers
 ```
 
-## 命令参考
+## Command Reference
 
-| 命令 | 是否修改工作区 | 用途 |
+| Command | Modifies working tree | Purpose |
 | --- | --- | --- |
-| `check` | 否 | 执行与 push hook 一致的只读检查 |
-| `status` | 否 | 输出人类可读摘要 |
-| `status --json` | 否 | 输出适合脚本、CI、Agent 消费的 JSON |
-| `state` | 否 | 输出 TSV 状态，主要用于测试或轻量脚本 |
-| `fix` | 可能 | 交互处理分支或子模块指针不一致 |
-| `push` | 可能 | 先交互处理，再执行 `git push` |
-| `sync` | 是 | 执行 submodule sync/update，恢复到主仓库记录的 commit |
-| `accept-pointers` | 是 | 接受当前子模块指针并创建主仓库 commit |
-| `install-hooks` | 是 | 重新安装 `pre-push` hook |
-| `uninstall` | 是 | 卸载本地治理工具，默认保留配置文件 |
+| `check` | No | Runs the same read-only checks as the push hook |
+| `status` | No | Prints a human-readable summary |
+| `status --json` | No | Prints JSON for scripts, CI, and agents |
+| `state` | No | Prints TSV status, mainly for tests or lightweight scripts |
+| `fix` | Maybe | Interactively handles branch or submodule pointer mismatches |
+| `push` | Maybe | Interactively handles issues, then runs `git push` |
+| `sync` | Yes | Runs submodule sync/update and restores recorded commits |
+| `accept-pointers` | Yes | Accepts current submodule pointers and creates a parent repository commit |
+| `install-hooks` | Yes | Reinstalls the `pre-push` hook |
+| `uninstall` | Yes | Removes the local governance tool and keeps the config file by default |
 
-完整形式：
+Full form:
 
 ```bash
 node .submodule-governance/cli/submodule-governance.mjs <command>
 ```
 
-## JSON 状态
+## JSON Status
 
 ```bash
 node .submodule-governance/cli/submodule-governance.mjs status --json
 ```
 
-主要字段：
+Main fields:
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `requirePushed` | 是否严格模式 |
-| `submodules` | `.gitmodules` 中声明的子模块路径 |
-| `missing` | 未初始化或目录缺失的子模块 |
-| `dirty` | 有未提交内容的子模块 |
-| `unpushed` | 当前 HEAD 尚未推送到 upstream 的子模块 |
-| `mismatches` | 子模块 HEAD 与主仓库记录的 gitlink 不一致 |
-| `branchMismatches` | 当前分支与配置分支不一致 |
-| `stagedPointers` | 已暂存但尚未提交的子模块指针 |
-| `configErrors` | 配置文件语法或内容错误 |
+| `requirePushed` | Whether strict mode is enabled |
+| `submodules` | Submodule paths declared in `.gitmodules` |
+| `missing` | Submodules that are not initialized or whose directories are missing |
+| `dirty` | Submodules with uncommitted changes |
+| `unpushed` | Submodules whose current HEAD has not been pushed to upstream |
+| `mismatches` | Submodule HEAD differs from the gitlink recorded by the parent repository |
+| `branchMismatches` | Current branch differs from the configured branch |
+| `stagedPointers` | Staged but uncommitted submodule pointers |
+| `configErrors` | Configuration syntax or content errors |
 
-## 配置
+## Configuration
 
-配置文件位于目标主仓库根目录：
+The configuration file is stored at the target parent repository root:
 
 ```bash
 .submodule-governance.config
 ```
 
-示例：
+Example:
 
 ```ini
 [governance]
@@ -113,7 +113,7 @@ node .submodule-governance/cli/submodule-governance.mjs status --json
     branch = main
 ```
 
-可以用 Git 修改：
+You can update it with Git:
 
 ```bash
 git config --file .submodule-governance.config governance.requirePushed true
@@ -121,13 +121,13 @@ git config --file .submodule-governance.config governance.mainBranch main
 git config --file .submodule-governance.config submodule.ios.branch main
 ```
 
-## 卸载
+## Uninstall
 
 ```bash
 node /path/to/submodule-governance-template/uninstall.mjs /path/to/main-repo
 ```
 
-同时删除配置：
+Also remove the configuration file:
 
 ```bash
 node /path/to/submodule-governance-template/uninstall.mjs /path/to/main-repo --remove-config

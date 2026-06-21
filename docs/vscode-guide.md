@@ -1,22 +1,22 @@
-# VS Code 集成教程
+# VS Code Integration Guide
 
-VS Code 不需要专用扩展，使用 tasks 直接调用本仓库安装出的 Node CLI 即可。
+VS Code does not need a dedicated extension. Use tasks to call the Node CLI installed by this template.
 
-## 前置安装
+## Prerequisite Installation
 
 ```bash
 node /path/to/submodule-governance-template/bootstrap.mjs /path/to/main-repo
 ```
 
-然后在目标主仓库中确认：
+Then verify the command in the target parent repository:
 
 ```bash
 node .submodule-governance/cli/submodule-governance.mjs check
 ```
 
-## tasks.json 示例
+## tasks.json Example
 
-在目标主仓库创建或更新 `.vscode/tasks.json`：
+Create or update `.vscode/tasks.json` in the target parent repository:
 
 ```json
 {
@@ -57,9 +57,9 @@ node .submodule-governance/cli/submodule-governance.mjs check
 }
 ```
 
-## 使用建议
+## Usage Notes
 
-- 日常先运行 `Submodule: Check`。
-- 有交互选择时运行 `Submodule: Fix`，并让任务在终端面板中显示。
-- 需要结构化状态时运行 `Submodule: Status JSON`。
-- 如果团队共享 `.vscode/tasks.json`，请确保仓库 onboarding 文档包含一次 `bootstrap.mjs` 安装步骤。
+- Run `Submodule: Check` during daily work.
+- Run `Submodule: Fix` when an interactive choice is needed, and reveal the task in the terminal panel.
+- Run `Submodule: Status JSON` when structured status is needed.
+- If the team shares `.vscode/tasks.json`, make sure the repository onboarding documentation includes one `bootstrap.mjs` installation step.

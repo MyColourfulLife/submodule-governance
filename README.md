@@ -1,34 +1,31 @@
-# 子模块治理模板
+# Submodule Governance Template
 
-这是一个给现有 Git Submodule 主仓库接入本地治理能力的模板。首发版统一使用 Node.js 18+：安装、卸载、命令行、SourceTree、VS Code 和 MCP 都走同一套 Node CLI。
+This template adds local governance checks to an existing Git submodule parent repository. The first release uses Node.js 18+ for installation, removal, command-line usage, SourceTree, VS Code, and MCP integration.
 
-## 视频教程
+Chinese documentation is available in [README.zh-CN.md](README.zh-CN.md).
 
-- [操作说明](docs/操作说明.mp4)
-- [通过 MCP 使用](docs/通过MCP使用.mp4)
-
-## 安装
+## Installation
 
 ```bash
 node /path/to/submodule-governance-template/bootstrap.mjs /path/to/main-repo
 ```
 
-严格模式会阻止包含高风险子模块状态的 push：
+Strict mode blocks pushes when high-risk submodule states are detected:
 
 ```bash
 node /path/to/submodule-governance-template/bootstrap.mjs /path/to/main-repo --strict
 ```
 
-安装后目标仓库会生成：
+After installation, the target repository contains:
 
-- `.submodule-governance/cli/submodule-governance.mjs`：日常 CLI 入口
-- `.submodule-governance/cli/submodule-governance-mcp.mjs`：本地 MCP server
-- `.submodule-governance.config`：团队配置文件，建议提交到主仓库
-- `pre-push` hook：push 前只读检查，不会修改工作区
+- `.submodule-governance/cli/submodule-governance.mjs`: daily CLI entry point.
+- `.submodule-governance/cli/submodule-governance-mcp.mjs`: local MCP server.
+- `.submodule-governance.config`: team configuration file, recommended for commit to the parent repository.
+- `pre-push` hook: read-only pre-push check that does not modify the working tree.
 
-## 常用命令
+## Common Commands
 
-在目标主仓库根目录执行：
+Run these commands from the target parent repository root:
 
 ```bash
 node .submodule-governance/cli/submodule-governance.mjs check
@@ -39,16 +36,16 @@ node .submodule-governance/cli/submodule-governance.mjs sync
 node .submodule-governance/cli/submodule-governance.mjs accept-pointers
 ```
 
-卸载：
+Uninstall:
 
 ```bash
 node /path/to/submodule-governance-template/uninstall.mjs /path/to/main-repo
 node /path/to/submodule-governance-template/uninstall.mjs /path/to/main-repo --remove-config
 ```
 
-## 配置
+## Configuration
 
-`.submodule-governance.config` 使用 Git config 格式：
+`.submodule-governance.config` uses Git config syntax:
 
 ```ini
 [governance]
@@ -59,33 +56,42 @@ node /path/to/submodule-governance-template/uninstall.mjs /path/to/main-repo --r
 #     branch = dev/v2.2.7/stable
 ```
 
-- `governance.requirePushed = false`：非严格模式，只提醒风险。
-- `governance.requirePushed = true`：严格模式，未推送子模块 commit、dirty 子模块、指针不一致、分支不一致等会阻止 push。
-- `governance.mainBranch`：主仓库期望分支，不配置则不检查。
-- `submodule "<path>".branch`：子模块期望分支，`<path>` 必须与 `.gitmodules` 中的 path 一致。
+- `governance.requirePushed = false`: non-strict mode, risks are reported but do not block push.
+- `governance.requirePushed = true`: strict mode, unpushed submodule commits, dirty submodules, pointer mismatches, and branch mismatches block push.
+- `governance.mainBranch`: expected parent repository branch. If omitted, no parent branch check is performed.
+- `submodule "<path>".branch`: expected submodule branch. `<path>` must match the path in `.gitmodules`.
 
-## 文档入口
+## Documentation
 
-- [命令行使用教程](docs/command-line-guide.md)
-- [SourceTree 使用教程](docs/sourcetree-guide.md)
-- [VS Code 集成教程](docs/vscode-guide.md)
-- [Agent MCP 接入教程](docs/agent-mcp-guide.md)
+English:
 
-## 安全边界
+- [Command-line guide](docs/command-line-guide.md)
+- [SourceTree guide](docs/sourcetree-guide.md)
+- [VS Code integration guide](docs/vscode-guide.md)
+- [Agent MCP integration guide](docs/agent-mcp-guide.md)
 
-- `git push` 触发的 hook 只读检查，不创建 commit、不 checkout、不修改配置。
-- `fix` 和 `push` 是交互命令，会在修改前让开发者选择处理方式。
-- `accept-pointers` 会创建主仓库 commit，用于明确接受当前子模块指针。
-- MCP 不暴露自动 push；写工具必须传入 `confirm: true`。
-- 首发版不兼容旧入口；模板更新后重新运行 `bootstrap.mjs` 即可覆盖本地安装。
+Chinese:
 
-## 集成测试
+- [Command-line guide](docs/zh-CN/command-line-guide.md)
+- [SourceTree guide](docs/zh-CN/sourcetree-guide.md)
+- [VS Code integration guide](docs/zh-CN/vscode-guide.md)
+- [Agent MCP integration guide](docs/zh-CN/agent-mcp-guide.md)
+
+## Safety Boundaries
+
+- The hook triggered by `git push` is read-only. It does not create commits, checkout branches, or change configuration.
+- `fix` and `push` are interactive commands. They ask the developer before applying changes.
+- `accept-pointers` creates a parent repository commit to explicitly accept the current submodule pointers.
+- MCP does not expose automatic push. Write tools require `confirm: true`.
+- The first release is not compatible with older entry points. Re-run `bootstrap.mjs` after template updates to overwrite the local installation.
+
+## Integration Test
 
 ```bash
 node submodule-governance-template/tests/integration-submodule-governance.mjs
 ```
 
-保留临时测试仓库：
+Keep temporary test repositories:
 
 ```bash
 KEEP_SUBMODULE_GOVERNANCE_TEST_TMP=1 node submodule-governance-template/tests/integration-submodule-governance.mjs
